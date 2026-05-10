@@ -1,0 +1,100 @@
+.react-calendar {
+  width: 100% !important;
+  border: none !important;
+  font-family: var(--font-sans) !important;
+  background: transparent !important;
+}
+
+.react-calendar__navigation {
+  margin-bottom: 1rem !important;
+}
+
+.react-calendar__navigation button {
+  min-width: 44px;
+  background: none;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--foreground);
+  transition: all 0.2s ease;
+}
+
+.react-calendar__navigation__label__labelText {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.react-calendar__navigation button:enabled:hover,
+.react-calendar__navigation button:enabled:focus {
+  background-color: var(--color-primary-50) !important;
+  color: var(--color-primary-600) !important;
+}
+
+.react-calendar__month-view__weekdays {
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  color: #9CA3AF;
+  text-decoration: none !important;
+}
+
+.react-calendar__month-view__weekdays__weekday {
+  padding: 0.6em !important;
+}
+
+.react-calendar__month-view__weekdays__weekday abbr {
+  text-decoration: none !important;
+}
+
+/* Bigger tiles to accommodate emoji */
+.react-calendar__tile {
+  padding: 0.7em 0.4em !important;
+  border-radius: 0.75rem !important;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.4 !important;
+}
+
+.react-calendar__tile abbr {
+  display: block;
+  line-height: 1.4;
+}
+
+.react-calendar__tile:enabled:hover,
+.react-calendar__tile:enabled:focus {
+  background-color: var(--color-primary-50) !important;
+  color: var(--color-primary-600) !important;
+}
+
+.react-calendar__tile--now {
+  background-color: var(--color-secondary-50) !important;
+  color: var(--color-secondary-500) !important;
+}
+
+.react-calendar__tile--now:enabled:hover,
+.react-calendar__tile--now:enabled:focus {
+  background-color: var(--color-secondary-100) !important;
+}
+
+.react-calendar__tile--active {
+  background-color: var(--color-primary-500) !important;
+  color: white !important;
+  box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.3) !important;
+}
+
+.react-calendar__tile--active:enabled:hover,
+.react-calendar__tile--active:enabled:focus {
+  background-color: var(--color-primary-600) !important;
+}
+
+/* Tiles that have a mood entry get a subtle background */
+.has-mood-entry {
+  background-color: rgba(139, 92, 246, 0.05) !important;
+}
+.react-calendar__tile--active.has-mood-entry {
+  background-color: var(--color-primary-500) !important;
+}
