@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useCallback } from 'react'
 import Calendar from 'react-calendar'
 import 'react-calendar/dist/Calendar.css'
 import { Plus, Check, Trash2, Loader2, BookOpen } from 'lucide-react'
@@ -32,7 +32,7 @@ export default function DashboardClient({
   initialEntry,
   initialTodos,
   userId,
-  moodMap = {}
+  moodMap: initialMoodMap = {}
 }: {
   initialEntry: Entry | null
   initialTodos: Todo[]
@@ -56,6 +56,11 @@ export default function DashboardClient({
   const [content, setContent] = useState(initialEntry?.content || '')
   const [isSaving, setIsSaving] = useState(false)
 
+  // Track the saved entry ID so tasks can be added after saving without a page reload
+  const [savedEntryId, setSavedEntryId] = useState<string | undefined>(initialEntry?.id)
+  // Live mood map that updates after save so calendar reflects new entries immediately
+  const [moodMap, setMoodMap] = useState<MoodMap>(initialMoodMap)
+
   const handleDateChange = (val: Date) => {
     const newDate = val.toISOString().split('T')[0]
     router.push(`/dashboard?date=${newDate}`)
@@ -64,8 +69,13 @@ export default function DashboardClient({
   const handleSaveEntry = async () => {
     setIsSaving(true)
     try {
-      const result = await saveJournalEntry(userId, selectedDateStr, content, mood, initialEntry?.id, diaryTitle)
-      if (result.success) {
+      const result = await saveJournalEntry(userId, selectedDateStr, content, mood, savedEntryId, diaryTitle)
+      if (result.success && result.data) {
+        setSavedEntryId(result.data.id)
+        // Update local mood map so calendar emoji appears immediately
+        if (mood) {
+          setMoodMap(prev => ({ ...prev, [selectedDateStr]: mood }))
+        }
         router.refresh()
       } else {
         console.error(result.message)
@@ -83,8 +93,8 @@ export default function DashboardClient({
     e.preventDefault()
     if (!newTodoTitle.trim()) return
 
-    if (!initialEntry?.id) {
-      alert("Please save your journal entry first to attach tasks to it.")
+    if (!savedEntryId) {
+      alert("Please save your diary entry first before adding tasks.")
       return
     }
 
@@ -101,7 +111,7 @@ export default function DashboardClient({
 
     startTransition(async () => {
       try {
-        const added = await addTodo(initialEntry.id, newTodoTask || newTodoTitle, newTodoTitle)
+        const added = await addTodo(savedEntryId, newTodoTask || newTodoTitle, newTodoTitle)
         setTodos(prev => prev.map(t => t.id === optimisticTodo.id ? added : t))
       } catch (e) {
         console.error(e)
@@ -124,104 +134,32 @@ export default function DashboardClient({
     })
   }
 
-  // Render mood emoji on calendar tiles
-  const tileContent = ({ date, view }: { date: Date; view: string }) => {
+  // Replace day number with emoji if there is a mood entry on that day
+  const tileContent = useCallback(({ date, view }: { date: Date; view: string }) => {
     if (view !== 'month') return null
     const dateStr = date.toISOString().split('T')[0]
     const dayMood = moodMap[dateStr]
     if (!dayMood) return null
+    // Return just the emoji — the day number is hidden via CSS when this renders
     return (
-      <div className="flex justify-center mt-0.5">
-        <span style={{ fontSize: '0.75rem', lineHeight: 1 }}>{dayMood}</span>
+      <div className="calendar-emoji-day" aria-label={dayMood}>
+        <span style={{ fontSize: '1rem', lineHeight: 1, display: 'block' }}>{dayMood}</span>
       </div>
     )
-  }
+  }, [moodMap])
 
-  const tileClassName = ({ date, view }: { date: Date; view: string }) => {
+  const tileClassName = useCallback(({ date, view }: { date: Date; view: string }) => {
     if (view !== 'month') return ''
     const dateStr = date.toISOString().split('T')[0]
-    const dayMood = moodMap[dateStr]
-    if (dayMood) return 'has-mood-entry'
-    return ''
-  }
+    return moodMap[dateStr] ? 'has-mood-entry' : ''
+  }, [moodMap])
 
   const selectedMoodInfo = MOODS.find(m => m.emoji === mood)
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-full pb-8">
 
-      {/* Left Column: Journal Entry (smaller) */}
-      <div className="lg:col-span-5 glass-panel p-6 lg:p-8 flex flex-col relative">
-        {isPending && (
-          <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl">
-            <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
-          </div>
-        )}
-
-        {/* Diary Header */}
-        <div className="flex items-center gap-3 mb-4">
-          <BookOpen className="w-5 h-5 text-primary-500 shrink-0" />
-          <h2 className="text-xl font-serif font-semibold text-foreground">Daily Diary</h2>
-        </div>
-
-        {/* Diary Title Input */}
-        <input
-          type="text"
-          value={diaryTitle}
-          onChange={e => setDiaryTitle(e.target.value)}
-          placeholder="Give today a title..."
-          className="w-full px-0 py-2 mb-1 bg-transparent border-b-2 border-gray-200 focus:border-primary-400 focus:outline-none text-lg font-serif font-semibold text-foreground placeholder:text-gray-300 transition-colors"
-        />
-        <p className="text-gray-400 text-xs mb-4">{selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
-
-        {/* How was your day / Mood */}
-        <div className="mb-4">
-          <p className="text-sm font-medium text-gray-500 mb-2">How was your day?</p>
-          <div className="flex flex-wrap gap-2 bg-white/50 p-2 rounded-2xl border border-gray-100 shadow-sm">
-            {MOODS.map(m => (
-              <button
-                key={m.emoji}
-                onClick={() => setMood(m.emoji)}
-                title={m.label}
-                className={`relative flex flex-col items-center gap-0.5 p-2 rounded-xl transition-all duration-200 group ${mood === m.emoji ? 'bg-primary-100 scale-110 shadow-sm' : 'hover:bg-gray-50 hover:scale-105 opacity-60 hover:opacity-100'}`}
-              >
-                <span style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif', fontSize: '1.35rem' }}>
-                  {m.emoji}
-                </span>
-                <span className={`text-[9px] font-medium transition-all ${mood === m.emoji ? 'text-primary-600 opacity-100' : 'text-gray-400 opacity-0 group-hover:opacity-100'}`}>
-                  {m.label}
-                </span>
-              </button>
-            ))}
-          </div>
-          {selectedMoodInfo && (
-            <p className="text-xs text-primary-500 mt-2 font-medium">
-              {selectedMoodInfo.emoji} Feeling {selectedMoodInfo.label}
-            </p>
-          )}
-        </div>
-
-        {/* Journal Text */}
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="Write your thoughts here..."
-          className="flex-1 w-full bg-transparent resize-none focus:outline-none text-gray-700 leading-relaxed min-h-[180px] text-sm"
-        />
-
-        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-end">
-          <button
-            onClick={handleSaveEntry}
-            disabled={isSaving}
-            className="btn-primary px-6 flex items-center gap-2 disabled:opacity-70"
-          >
-            {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isSaving ? 'Saving...' : 'Save Entry'}
-          </button>
-        </div>
-      </div>
-
-      {/* Right Column: Calendar & Todos (bigger) */}
+      {/* Left Column: Calendar & Todos (bigger) */}
       <div className="lg:col-span-7 flex flex-col gap-6">
 
         {/* Calendar Panel */}
@@ -246,14 +184,14 @@ export default function DashboardClient({
             <h3 className="font-serif font-semibold text-xl text-foreground">To-do List</h3>
             <button
               onClick={() => setShowAddForm(v => !v)}
-              disabled={!initialEntry}
-              title={!initialEntry ? 'Save journal entry first' : 'Add task'}
-              className="p-2 bg-primary-100 text-primary-600 rounded-xl hover:bg-primary-200 transition-colors disabled:opacity-50 flex items-center gap-1 text-sm font-medium px-3"
+              className="p-2 bg-primary-100 text-primary-600 rounded-xl hover:bg-primary-200 transition-colors flex items-center gap-1 text-sm font-medium px-3"
+              title={!savedEntryId ? 'Save diary entry first' : 'Add task'}
             >
               <Plus size={16} />
               Add Task
             </button>
           </div>
+
 
           {/* Add task form */}
           {showAddForm && (
@@ -264,7 +202,6 @@ export default function DashboardClient({
                   type="text"
                   value={newTodoTitle}
                   onChange={e => setNewTodoTitle(e.target.value)}
-                  placeholder="e.g. Morning Routine"
                   required
                   autoFocus
                   className="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 text-sm font-semibold"
@@ -276,7 +213,6 @@ export default function DashboardClient({
                   type="text"
                   value={newTodoTask}
                   onChange={e => setNewTodoTask(e.target.value)}
-                  placeholder="e.g. Exercise for 30 minutes"
                   className="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 text-sm"
                 />
               </div>
@@ -318,10 +254,82 @@ export default function DashboardClient({
             ))}
             {todos.length === 0 && (
               <p className="text-gray-400 text-center py-6 text-sm">
-                {initialEntry ? 'No tasks yet. Add one above!' : 'Save your diary entry first to add tasks.'}
+                {savedEntryId ? 'No tasks yet. Add one above!' : 'Save your diary entry first to add tasks.'}
               </p>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Right Column: Journal Entry (smaller) */}
+      <div className="lg:col-span-5 glass-panel p-6 lg:p-8 flex flex-col relative">
+        {isPending && (
+          <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl">
+            <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+          </div>
+        )}
+
+        {/* Diary Header */}
+        <div className="flex items-center gap-3 mb-4">
+          <BookOpen className="w-5 h-5 text-primary-500 shrink-0" />
+          <h2 className="text-xl font-serif font-semibold text-foreground">Daily Diary</h2>
+        </div>
+
+        <p className="text-gray-400 text-xs mb-4">{selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+
+        {/* How was your day / Mood */}
+        <div className="mb-4">
+          <p className="text-sm font-medium text-gray-500 mb-2">How was your day?</p>
+          <div className="flex flex-wrap gap-2 bg-white/50 p-2 rounded-2xl border border-gray-100 shadow-sm">
+            {MOODS.map(m => (
+              <button
+                key={m.emoji}
+                onClick={() => setMood(m.emoji)}
+                title={m.label}
+                className={`relative flex flex-col items-center gap-0.5 p-2 rounded-xl transition-all duration-200 group ${mood === m.emoji ? 'bg-primary-100 scale-110 shadow-sm' : 'hover:bg-gray-50 hover:scale-105 opacity-60 hover:opacity-100'}`}
+              >
+                <span style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif', fontSize: '1.35rem' }}>
+                  {m.emoji}
+                </span>
+                <span className={`text-[9px] font-medium transition-all ${mood === m.emoji ? 'text-primary-600 opacity-100' : 'text-gray-400 opacity-0 group-hover:opacity-100'}`}>
+                  {m.label}
+                </span>
+              </button>
+            ))}
+          </div>
+          {selectedMoodInfo && (
+            <p className="text-xs text-primary-500 mt-2 font-medium">
+              {selectedMoodInfo.emoji} Feeling {selectedMoodInfo.label}
+            </p>
+          )}
+        </div>
+
+        {/* Diary Title Input — AFTER mood */}
+        <input
+          type="text"
+          value={diaryTitle}
+          onChange={e => setDiaryTitle(e.target.value)}
+          placeholder="Give today a title..."
+          className="w-full px-0 py-2 mb-1 bg-transparent border-b-2 border-gray-200 focus:border-primary-400 focus:outline-none text-lg font-serif font-semibold text-foreground placeholder:text-gray-300 transition-colors"
+        />
+
+        {/* Journal Text */}
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="Write your thoughts here..."
+          className="flex-1 w-full bg-transparent resize-none focus:outline-none text-gray-700 leading-relaxed min-h-[180px] text-sm mt-3"
+        />
+
+        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-end">
+          <button
+            onClick={handleSaveEntry}
+            disabled={isSaving}
+            className="btn-primary px-6 flex items-center gap-2 disabled:opacity-70"
+          >
+            {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isSaving ? 'Saving...' : 'Save Entry'}
+          </button>
         </div>
       </div>
 

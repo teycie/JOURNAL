@@ -57,11 +57,25 @@
   flex-direction: column;
   align-items: center;
   line-height: 1.4 !important;
+  position: relative;
 }
 
 .react-calendar__tile abbr {
   display: block;
   line-height: 1.4;
+}
+
+/* When a tile has an emoji, hide the number and show the emoji instead */
+.react-calendar__tile.has-mood-entry abbr {
+  display: none;
+}
+
+.calendar-emoji-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  line-height: 1;
 }
 
 .react-calendar__tile:enabled:hover,
@@ -93,8 +107,9 @@
 
 /* Tiles that have a mood entry get a subtle background */
 .has-mood-entry {
-  background-color: rgba(139, 92, 246, 0.05) !important;
+  background-color: rgba(139, 92, 246, 0.07) !important;
 }
+
 .react-calendar__tile--active.has-mood-entry {
   background-color: var(--color-primary-500) !important;
 }

@@ -6,12 +6,30 @@ import { User, Palette, Bell, Shield, Camera, Eye, EyeOff, Check } from 'lucide-
 type Section = 'account' | 'appearance' | 'notifications' | 'privacy'
 
 const THEMES = [
-  { id: 'default', label: 'Bloomly', colors: ['#8B5CF6', '#F43F5E', '#10B981'], desc: 'Soft purple & rose' },
-  { id: 'ocean', label: 'Ocean', colors: ['#0EA5E9', '#06B6D4', '#3B82F6'], desc: 'Cool blues & cyan' },
-  { id: 'forest', label: 'Forest', colors: ['#16A34A', '#65A30D', '#0D9488'], desc: 'Earthy greens' },
-  { id: 'sunset', label: 'Sunset', colors: ['#F97316', '#EF4444', '#FBBF24'], desc: 'Warm oranges & red' },
-  { id: 'cherry', label: 'Cherry', colors: ['#EC4899', '#F43F5E', '#A855F7'], desc: 'Pinks & fuchsia' },
-  { id: 'midnight', label: 'Midnight', colors: ['#6366F1', '#8B5CF6', '#A78BFA'], desc: 'Deep indigo tones' },
+  {
+    id: 'default', label: 'Bloomly', colors: ['#8B5CF6', '#F43F5E', '#10B981'], desc: 'Soft purple & rose',
+    vars: { '--color-primary-50': '#F3F0FF', '--color-primary-100': '#EBE5FF', '--color-primary-500': '#8B5CF6', '--color-primary-600': '#7C3AED' }
+  },
+  {
+    id: 'ocean', label: 'Ocean', colors: ['#0EA5E9', '#06B6D4', '#3B82F6'], desc: 'Cool blues & cyan',
+    vars: { '--color-primary-50': '#F0F9FF', '--color-primary-100': '#E0F2FE', '--color-primary-500': '#0EA5E9', '--color-primary-600': '#0284C7' }
+  },
+  {
+    id: 'forest', label: 'Forest', colors: ['#16A34A', '#65A30D', '#0D9488'], desc: 'Earthy greens',
+    vars: { '--color-primary-50': '#F0FDF4', '--color-primary-100': '#DCFCE7', '--color-primary-500': '#16A34A', '--color-primary-600': '#15803D' }
+  },
+  {
+    id: 'sunset', label: 'Sunset', colors: ['#F97316', '#EF4444', '#FBBF24'], desc: 'Warm oranges & red',
+    vars: { '--color-primary-50': '#FFF7ED', '--color-primary-100': '#FFEDD5', '--color-primary-500': '#F97316', '--color-primary-600': '#EA580C' }
+  },
+  {
+    id: 'cherry', label: 'Cherry', colors: ['#EC4899', '#F43F5E', '#A855F7'], desc: 'Pinks & fuchsia',
+    vars: { '--color-primary-50': '#FDF2F8', '--color-primary-100': '#FCE7F3', '--color-primary-500': '#EC4899', '--color-primary-600': '#DB2777' }
+  },
+  {
+    id: 'midnight', label: 'Midnight', colors: ['#6366F1', '#8B5CF6', '#A78BFA'], desc: 'Deep indigo tones',
+    vars: { '--color-primary-50': '#EEF2FF', '--color-primary-100': '#E0E7FF', '--color-primary-500': '#6366F1', '--color-primary-600': '#4F46E5' }
+  },
 ]
 
 const SYSTEM_MODES = [
@@ -31,6 +49,24 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
   // Appearance
   const [selectedTheme, setSelectedTheme] = useState('default')
   const [systemMode, setSystemMode] = useState('system')
+  const [themeApplied, setThemeApplied] = useState(false)
+
+  const handleApplyTheme = () => {
+    const theme = THEMES.find(t => t.id === selectedTheme)
+    if (!theme) return
+    const root = document.documentElement
+    Object.entries(theme.vars).forEach(([key, val]) => root.style.setProperty(key, val))
+    // Handle dark/light mode
+    if (systemMode === 'dark') {
+      root.classList.add('dark')
+    } else if (systemMode === 'light') {
+      root.classList.remove('dark')
+    } else {
+      root.classList.remove('dark')
+    }
+    setThemeApplied(true)
+    setTimeout(() => setThemeApplied(false), 2500)
+  }
 
   // Privacy / Password
   const [currentPassword, setCurrentPassword] = useState('')
@@ -86,11 +122,10 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
             <button
               key={item.id}
               onClick={() => setSection(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
-                section === item.id
-                  ? 'bg-primary-50 text-primary-600'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${section === item.id
+                ? 'bg-primary-50 text-primary-600'
+                : 'text-gray-600 hover:bg-gray-50'
+                }`}
             >
               <item.icon size={18} />
               {item.label}
@@ -152,12 +187,11 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-1 text-gray-700">Display Name</label>
+                    <label className="block text-sm font-medium mb-1 text-gray-700">Name</label>
                     <input
                       type="text"
                       value={displayName}
                       onChange={e => setDisplayName(e.target.value)}
-                      placeholder="e.g. Jane Doe"
                       className="w-full px-4 py-2 rounded-xl bg-white/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                     />
                   </div>
@@ -191,11 +225,10 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
                     <button
                       key={m.id}
                       onClick={() => setSystemMode(m.id)}
-                      className={`flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl border-2 transition-all font-medium text-sm ${
-                        systemMode === m.id
-                          ? 'border-primary-400 bg-primary-50 text-primary-700'
-                          : 'border-gray-200 bg-white/60 text-gray-600 hover:border-primary-200'
-                      }`}
+                      className={`flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl border-2 transition-all font-medium text-sm ${systemMode === m.id
+                        ? 'border-primary-400 bg-primary-50 text-primary-700'
+                        : 'border-gray-200 bg-white/60 text-gray-600 hover:border-primary-200'
+                        }`}
                     >
                       <span className="text-2xl">{m.icon}</span>
                       {m.label}
@@ -212,11 +245,10 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
                     <button
                       key={theme.id}
                       onClick={() => setSelectedTheme(theme.id)}
-                      className={`relative p-4 rounded-2xl border-2 transition-all text-left ${
-                        selectedTheme === theme.id
-                          ? 'border-primary-400 bg-primary-50/60 shadow-md'
-                          : 'border-gray-200 bg-white/60 hover:border-gray-300'
-                      }`}
+                      className={`relative p-4 rounded-2xl border-2 transition-all text-left ${selectedTheme === theme.id
+                        ? 'border-primary-400 bg-primary-50/60 shadow-md'
+                        : 'border-gray-200 bg-white/60 hover:border-gray-300'
+                        }`}
                     >
                       {/* Color swatches */}
                       <div className="flex gap-1 mb-2">
@@ -236,8 +268,9 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
                 </div>
               </div>
 
-              <div className="flex justify-end">
-                <button className="btn-primary">Apply Theme</button>
+              <div className="flex justify-end items-center gap-3">
+                {themeApplied && <span className="text-sm text-emerald-500 font-medium animate-pulse">✓ Theme applied!</span>}
+                <button onClick={handleApplyTheme} className="btn-primary">Apply Theme</button>
               </div>
             </div>
           )}
@@ -311,12 +344,11 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
                     {/* Strength indicator */}
                     {newPassword && (
                       <div className="flex gap-1 mt-1.5">
-                        {[1,2,3,4].map(i => (
-                          <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${
-                            newPassword.length >= i * 2
-                              ? newPassword.length >= 8 ? 'bg-emerald-400' : 'bg-amber-400'
-                              : 'bg-gray-200'
-                          }`} />
+                        {[1, 2, 3, 4].map(i => (
+                          <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${newPassword.length >= i * 2
+                            ? newPassword.length >= 8 ? 'bg-emerald-400' : 'bg-amber-400'
+                            : 'bg-gray-200'
+                            }`} />
                         ))}
                       </div>
                     )}
@@ -331,11 +363,10 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
                         value={confirmPassword}
                         onChange={e => setConfirmPassword(e.target.value)}
                         placeholder="Re-enter new password"
-                        className={`w-full px-4 py-2 pr-10 rounded-xl bg-white/50 border focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-sm ${
-                          confirmPassword && confirmPassword !== newPassword
-                            ? 'border-red-300 focus:ring-red-300/50'
-                            : 'border-gray-200'
-                        }`}
+                        className={`w-full px-4 py-2 pr-10 rounded-xl bg-white/50 border focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-sm ${confirmPassword && confirmPassword !== newPassword
+                          ? 'border-red-300 focus:ring-red-300/50'
+                          : 'border-gray-200'
+                          }`}
                       />
                       <button type="button" onClick={() => setShowConfirm(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                         {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
