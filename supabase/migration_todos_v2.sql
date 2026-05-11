@@ -29,6 +29,10 @@ drop policy if exists "Authenticated users can view todos" on todos;
 drop policy if exists "Authenticated users can insert todos" on todos;
 drop policy if exists "Authenticated users can update todos" on todos;
 drop policy if exists "Authenticated users can delete todos" on todos;
+drop policy if exists "Users can view their own todos" on todos;
+drop policy if exists "Users can insert their own todos" on todos;
+drop policy if exists "Users can update their own todos" on todos;
+drop policy if exists "Users can delete their own todos" on todos;
 
 create policy "Users can view their own todos" on todos
   for select using (auth.uid() = user_id);
