@@ -31,7 +31,7 @@ const COVER_COLORS = [
 
 function makebook(overrides: Partial<Book> = {}): Book {
   return {
-    id: Date.now().toString(),
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
     title: 'New Journal',
     coverColor: COVER_COLORS[Math.floor(Math.random() * COVER_COLORS.length)],
     coverImageOffset: { x: 0, y: 0 },
@@ -194,7 +194,7 @@ function PannableCoverImage({
 /* ─── View-Only Page Viewer ──────────────────────────────────────────────── */
 function ViewerScrapbook({ pages }: { pages: ScrapbookPage[] }) {
   const normalized = pages.length > 0
-    ? pages.map(p => ({ images: p.images || [], texts: p.texts || [] }))
+    ? pages.map(p => ({ images: p.images || [], texts: (p.texts || []).map(text => ({ ...text, rotation: text.rotation ?? 0 })) }))
     : [{ images: [], texts: [] }, { images: [], texts: [] }]
 
   const [idx, setIdx] = useState(0)
@@ -224,7 +224,7 @@ function ViewerScrapbook({ pages }: { pages: ScrapbookPage[] }) {
       <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#000 1px,transparent 1px),linear-gradient(90deg,#000 1px,transparent 1px)', backgroundSize: '32px 32px' }} />
       {/* Texts */}
       {(page.texts || []).map((txt, i) => (
-        <div key={`${txt.id}-${i}`} className="absolute pointer-events-none select-none" style={{ left: `${txt.x}%`, top: `${txt.y}%`, width: `${txt.width}%`, fontSize: txt.fontSize, color: txt.color, fontWeight: txt.bold ? 700 : 400, fontStyle: txt.italic ? 'italic' : 'normal', textDecoration: txt.underline ? 'underline' : 'none', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        <div key={`${txt.id}-${i}`} className="absolute pointer-events-none select-none" style={{ left: `${txt.x}%`, top: `${txt.y}%`, width: `${txt.width}%`, fontSize: txt.fontSize, color: txt.color, fontWeight: txt.bold ? 700 : 400, fontStyle: txt.italic ? 'italic' : 'normal', textDecoration: txt.underline ? 'underline' : 'none', whiteSpace: 'pre-wrap', wordBreak: 'break-word', transform: `rotate(${txt.rotation ?? 0}deg)` }}>
           {txt.content}
         </div>
       ))}
@@ -250,7 +250,7 @@ function ViewerScrapbook({ pages }: { pages: ScrapbookPage[] }) {
       {/* Book */}
       <div className="relative w-full flex-1 min-h-0" style={{ maxHeight: '65vh' }}>
         <div className="absolute inset-0 bg-black/10 blur-3xl rounded-[3rem] -z-10 translate-y-8" />
-        <div className="absolute inset-0 flex p-3 bg-[#4a3b2b] rounded-[2rem] shadow-2xl overflow-hidden border-8 border-[#3a2f22]">
+        <div className="absolute inset-0 flex p-3 bg-[#4a3b2b] rounded-[2rem] shadow-2xl overflow-hidden border-8" style={{ borderColor: 'var(--book-border-color, #3a2f22)' }}>
           {/* Left page */}
           <div className="flex-1 shadow-[inset_-1px_0_10px_rgba(0,0,0,0.08)] rounded-l-xl relative overflow-hidden">
             {renderPage(leftPage, idx + 1)}
@@ -286,9 +286,9 @@ function ViewerScrapbook({ pages }: { pages: ScrapbookPage[] }) {
 /* ─── Main Component ─────────────────────────────────────────────────────── */
 export default function JournalClient() {
   const [books, setBooks] = useState<Book[]>([
-    makebook({ id: '1', title: 'Daily Reflections', coverColor: COVER_COLORS[0], entries: 42, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
-    makebook({ id: '2', title: 'Travel 2026', coverColor: COVER_COLORS[4], entries: 12, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
-    makebook({ id: '3', title: 'Gratitude', coverColor: COVER_COLORS[2], entries: 108, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
+    makebook({ title: 'Daily Reflections', coverColor: COVER_COLORS[0], entries: 42, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
+    makebook({ title: 'Travel 2026', coverColor: COVER_COLORS[4], entries: 12, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
+    makebook({ title: 'Gratitude', coverColor: COVER_COLORS[2], entries: 108, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
   ])
 
   const [openBook, setOpenBook] = useState<Book | null>(null)
@@ -333,7 +333,7 @@ export default function JournalClient() {
     setEditingCover(false)
   }
 
-  const saveCoverEdit = () => {
+  const saveCoverEdit = async () => {
     if (!openBook) return
     const updated: Book = {
       ...openBook,
@@ -346,8 +346,22 @@ export default function JournalClient() {
       titleColor: editTitleColor,
       titleRotation: editTitleRotation,
     }
-    setBooks(prev => prev.map(b => b.id === openBook.id ? updated : b))
-    setOpenBook(updated)
+
+    const response = await fetch('/api/books/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book: updated }),
+    })
+
+    if (!response.ok) {
+      alert('Failed to save book. Please try again.')
+      return
+    }
+
+    const result = await response.json()
+    const savedBook = result.book ?? updated
+    setBooks(prev => prev.map(b => b.id === openBook.id ? savedBook : b))
+    setOpenBook(savedBook)
     setEditingCover(false)
   }
 

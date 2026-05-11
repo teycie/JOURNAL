@@ -22,6 +22,7 @@ export type ScrapbookText = {
   bold: boolean
   italic: boolean
   underline: boolean
+  rotation: number
   zIndex: number
 }
 
@@ -178,7 +179,7 @@ function TextItem({
   const onDragMove = useDragMove(text, pageRef, onUpdate)
 
   const toolbar = isSelected && (
-    <div className="absolute -top-9 left-0 flex items-center gap-1 bg-white border border-gray-200 rounded-lg shadow-lg px-2 py-1 z-30" onClick={e => e.stopPropagation()}>
+    <div className="absolute -top-12 left-0 flex flex-wrap items-center gap-1 bg-white border border-gray-200 rounded-lg shadow-lg px-2 py-1 z-30" onClick={e => e.stopPropagation()}>
       <button onClick={() => onUpdate({ bold: !text.bold })} className={`p-1 rounded transition-colors ${text.bold ? 'bg-primary-100 text-primary-700' : 'hover:bg-gray-100'}`}><Bold size={12} /></button>
       <button onClick={() => onUpdate({ italic: !text.italic })} className={`p-1 rounded transition-colors ${text.italic ? 'bg-primary-100 text-primary-700' : 'hover:bg-gray-100'}`}><Italic size={12} /></button>
       <button onClick={() => onUpdate({ underline: !text.underline })} className={`p-1 rounded transition-colors ${text.underline ? 'bg-primary-100 text-primary-700' : 'hover:bg-gray-100'}`}><Underline size={12} /></button>
@@ -188,6 +189,12 @@ function TextItem({
       <select value={text.fontSize} onChange={e => onUpdate({ fontSize: Number(e.target.value) })} className="text-xs border-0 outline-none bg-transparent" onClick={e => e.stopPropagation()}>
         {[10,12,14,16,18,20,24,28,32,40].map(s => <option key={s} value={s}>{s}px</option>)}
       </select>
+      <div className="w-px h-4 bg-gray-200" />
+      <div className="flex items-center gap-0.5">
+        <button onClick={() => onUpdate({ rotation: (text.rotation - 15 + 360) % 360 })} className="p-1 rounded hover:bg-gray-100 transition-colors" title="Rotate left"><RotateCcw size={11} /></button>
+        <input type="range" min={0} max={360} value={text.rotation} onChange={e => onUpdate({ rotation: Number(e.target.value) })} className="w-12 h-2 accent-primary-500" title="Rotate" />
+        <button onClick={() => onUpdate({ rotation: (text.rotation + 15) % 360 })} className="p-1 rounded hover:bg-gray-100 transition-colors" title="Rotate right"><RotateCw size={11} /></button>
+      </div>
       <div className="w-px h-4 bg-gray-200" />
       <button onClick={() => onDelete()} className="p-1 rounded text-red-500 hover:bg-red-50 transition-colors"><Trash2 size={12} /></button>
     </div>
@@ -221,6 +228,7 @@ function TextItem({
             fontWeight: text.bold ? 700 : 400,
             fontStyle: text.italic ? 'italic' : 'normal',
             textDecoration: text.underline ? 'underline' : 'none',
+            transform: `rotate(${text.rotation}deg)`,
             minHeight: 40,
           }}
           onClick={e => e.stopPropagation()}
@@ -236,6 +244,7 @@ function TextItem({
             fontWeight: text.bold ? 700 : 400,
             fontStyle: text.italic ? 'italic' : 'normal',
             textDecoration: text.underline ? 'underline' : 'none',
+            transform: `rotate(${text.rotation}deg)`,
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
           }}
@@ -348,7 +357,12 @@ interface ScrapbookProps {
 
 export default function Scrapbook({ pages: initialPages, onUpdatePages }: ScrapbookProps) {
   const normalize = (ps: ScrapbookPage[]) =>
-    ps.length > 0 ? ps.map(p => ({ images: p.images || [], texts: p.texts || [] })) : [{ images: [], texts: [] }, { images: [], texts: [] }]
+    ps.length > 0
+      ? ps.map(p => ({
+          images: p.images || [],
+          texts: (p.texts || []).map(text => ({ ...text, rotation: text.rotation ?? 0 })),
+        }))
+      : [{ images: [], texts: [] }, { images: [], texts: [] }]
 
   const [pages, setPages] = useState<ScrapbookPage[]>(() => normalize(initialPages))
   const [currentPageIndex, setCurrentPageIndex] = useState(0)
@@ -397,7 +411,7 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
   }
 
   const handleClickEmpty = (pi: number, x: number, y: number) => {
-    const txt: ScrapbookText = { id: genId(), content: '', x, y, width: 40, fontSize: 14, color: '#2D3748', bold: false, italic: false, underline: false, zIndex: Date.now() }
+    const txt: ScrapbookText = { id: genId(), content: '', x, y, width: 40, fontSize: 14, color: '#2D3748', bold: false, italic: false, underline: false, rotation: 0, zIndex: Date.now() }
     setPagesMut(ps => { ps[pi].texts = [...(ps[pi].texts || []), txt]; return ps })
     setSelectedId(txt.id)
   }
@@ -444,30 +458,6 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
       {/* Toolbar */}
       <div className="flex items-center justify-between w-full mb-6 bg-white/80 backdrop-blur-md p-3 rounded-2xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-2">
-          {/* Page side toggle */}
-          <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-0.5">
-            <button
-              onClick={() => setActiveSide('left')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeSide === 'left'
-                  ? 'bg-white text-primary-700 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              ← Left Page
-            </button>
-            <button
-              onClick={() => setActiveSide('right')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeSide === 'right'
-                  ? 'bg-white text-primary-700 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Right Page →
-            </button>
-          </div>
-
           <button
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors shadow-lg shadow-primary-200"
@@ -518,7 +508,7 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
       {/* Book */}
       <div className="relative w-full flex-1 min-h-0" style={{ maxHeight: '65vh' }}>
         <div className="absolute inset-0 bg-black/10 blur-3xl rounded-[3rem] -z-10 translate-y-8" />
-        <div className="absolute inset-0 flex p-3 bg-[#4a3b2b] rounded-[2rem] shadow-2xl overflow-hidden border-8 border-[#3a2f22]">
+        <div className="absolute inset-0 flex p-3 bg-[#4a3b2b] rounded-[2rem] shadow-2xl overflow-hidden border-8" style={{ borderColor: 'var(--book-border-color, #3a2f22)' }}>
           {/* Left Page */}
           <div
             className={`flex-1 bg-[#fdfdfb] shadow-[inset_-1px_0_10px_rgba(0,0,0,0.08)] rounded-l-xl relative overflow-hidden transition-all ${
@@ -574,7 +564,7 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
         </div>
       </div>
 
-      <p className="mt-3 text-xs text-gray-400 text-center">Toggle Left/Right page · click page to select it · drag to move · corner to resize · use ↺↻ to rotate images</p>
+      <p className="mt-3 text-xs text-gray-400 text-center">Click page to select it · drag to move · corner to resize · use ↺↻ to rotate images · rotate text with slider</p>
     </div>
   )
 }

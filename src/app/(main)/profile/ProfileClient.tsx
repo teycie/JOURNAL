@@ -56,6 +56,7 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
     if (!theme) return
     const root = document.documentElement
     Object.entries(theme.vars).forEach(([key, val]) => root.style.setProperty(key, val))
+    root.style.setProperty('--book-border-color', theme.colors[0])
     // Handle dark/light mode
     if (systemMode === 'dark') {
       root.classList.add('dark')
