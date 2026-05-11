@@ -4,6 +4,10 @@ create table books (
   user_id uuid references auth.users(id),
   title text not null,
   cover_url text,
+  cover_color text,
+  cover_meta jsonb default '{}'::jsonb,
+  pages jsonb default '[]'::jsonb,
+  updated_at timestamp default now(),
   created_at timestamp default now()
 );
 

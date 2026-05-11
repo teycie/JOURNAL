@@ -10,6 +10,9 @@ create table if not exists books (
   user_id    uuid references auth.users(id) on delete cascade,
   title      text not null,
   cover_url  text,
+  cover_color text,
+  cover_meta  jsonb default '{}'::jsonb,
+  pages      jsonb default '[]'::jsonb,
   created_at timestamp default now(),
   updated_at timestamp default now()
 );

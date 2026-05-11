@@ -66,21 +66,52 @@ export async function addTodo(
     return { id: 'local-' + Date.now(), user_id: userId, entry_date: date, title, subtasks: [], completed: false }
   }
 
+  const payload = {
+    user_id: userId,
+    entry_date: date,
+    title,
+    completed: false,
+    subtasks: JSON.stringify(subtasks || []),
+  }
+
   const { data, error } = await supabase
     .from('todos')
-    .insert({
-      user_id: userId,
-      entry_date: date,
-      title,
-      completed: false,
-      subtasks: JSON.stringify(subtasks || []),
-    })
+    .insert(payload)
     .select()
     .single()
 
   if (error) {
+    // Fallback for older schemas: link the task to the day's journal entry.
+    let { data: entry } = await supabase
+      .from('journal_entries')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('entry_date', date)
+      .maybeSingle()
+
+    if (!entry) {
+      const { data: createdEntry } = await supabase
+        .from('journal_entries')
+        .insert({ user_id: userId, entry_date: date, title: '', content: '', mood: '' })
+        .select('id')
+        .single()
+      entry = createdEntry
+    }
+
+    if (entry) {
+      const { data: legacyTodo, error: legacyError } = await supabase
+        .from('todos')
+        .insert({ entry_id: entry.id, title, task: title, completed: false })
+        .select()
+        .single()
+
+      if (!legacyError && legacyTodo) {
+        revalidatePath('/dashboard')
+        return { ...legacyTodo, subtasks: subtasks || [], entry_date: date, user_id: userId }
+      }
+    }
+
     console.error('Failed to add todo for date', date, ':', error.message)
-    // Return optimistic fallback for UI
     return {
       id: 'local-' + Date.now(),
       user_id: userId,
@@ -117,7 +148,14 @@ export async function updateTodoTitle(id: string, title: string) {
     .eq('id', id)
 
   if (error) {
-    console.error('Failed to update todo title:', error.message)
+    const { error: legacyError } = await supabase
+      .from('todos')
+      .update({ task: title })
+      .eq('id', id)
+
+    if (legacyError) {
+      console.error('Failed to update todo title:', legacyError.message)
+    }
   }
   
   revalidatePath('/dashboard')
@@ -185,8 +223,30 @@ export async function getTodosForDate(userId: string, date: string) {
     .order('created_at', { ascending: true })
 
   if (error) {
-    console.error('Failed to fetch todos for date', date, ':', error.message)
-    return []
+    const { data: entry } = await supabase
+      .from('journal_entries')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('entry_date', date)
+      .maybeSingle()
+
+    if (!entry) {
+      console.error('Failed to fetch todos for date', date, ':', error.message)
+      return []
+    }
+
+    const { data: legacyTodos, error: legacyError } = await supabase
+      .from('todos')
+      .select('*')
+      .eq('entry_id', entry.id)
+      .order('created_at', { ascending: true })
+
+    if (legacyError) {
+      console.error('Failed to fetch legacy todos for date', date, ':', legacyError.message)
+      return []
+    }
+
+    return legacyTodos || []
   }
 
   return data || []

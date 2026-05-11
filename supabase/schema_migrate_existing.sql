@@ -8,14 +8,26 @@
 alter table journal_entries
   add column if not exists title text default '';
 
--- 2. Add "unique" constraint so upsert works correctly
+-- 2. Add missing columns to books so cover saves and page payloads persist
+alter table books
+  add column if not exists cover_color text,
+  add column if not exists cover_meta jsonb default '{}'::jsonb,
+  add column if not exists pages jsonb default '[]'::jsonb,
+  add column if not exists updated_at timestamp default now();
+
+update books
+  set cover_meta = coalesce(cover_meta, '{}'::jsonb),
+      pages = coalesce(pages, '[]'::jsonb),
+      updated_at = coalesce(updated_at, now());
+
+-- 3. Add "unique" constraint so upsert works correctly
 --    (skip if you already have duplicate user_id+entry_date rows)
 alter table journal_entries
   drop constraint if exists journal_entries_user_id_entry_date_key;
 alter table journal_entries
   add constraint journal_entries_user_id_entry_date_key unique (user_id, entry_date);
 
--- 3. Add missing columns to todos
+-- 4. Add missing columns to todos
 alter table todos
   add column if not exists user_id    uuid references auth.users(id) on delete cascade;
 alter table todos
@@ -25,7 +37,7 @@ alter table todos
 alter table todos
   add column if not exists subtasks   text default '[]';
 
--- 4. Backfill user_id + entry_date from linked journal_entries (for existing rows)
+-- 5. Backfill user_id + entry_date from linked journal_entries (for existing rows)
 update todos t
   set user_id    = je.user_id,
       entry_date = je.entry_date
@@ -33,7 +45,7 @@ update todos t
   where t.entry_id = je.id
     and t.user_id is null;
 
--- 5. Replace broad "authenticated" todo policies with user-scoped ones
+-- 6. Replace broad "authenticated" todo policies with user-scoped ones
 drop policy if exists "Authenticated users can view todos"   on todos;
 drop policy if exists "Authenticated users can insert todos" on todos;
 drop policy if exists "Authenticated users can update todos" on todos;
