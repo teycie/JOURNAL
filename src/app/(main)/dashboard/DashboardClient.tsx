@@ -85,9 +85,12 @@ export default function DashboardClient({
     setEditingTodoTitle('')
   }, [selectedDateStr, initialEntry, initialTodos])
 
+  const formatDate = (dt: Date): string => {
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+  }
+
   const handleDateChange = (val: Date) => {
-    const dt = val
-    const dateStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+    const dateStr = formatDate(val)
     router.push(`/dashboard?date=${dateStr}`)
   }
 
@@ -177,7 +180,7 @@ export default function DashboardClient({
 
   const tileContent = useCallback(({ date, view }: { date: Date; view: string }) => {
     if (view !== 'month') return null
-    const ds = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    const ds = formatDate(date)
     const dayMood = moodMap[ds]
     if (!dayMood) return null
     return (
@@ -189,7 +192,7 @@ export default function DashboardClient({
 
   const tileClassName = useCallback(({ date, view }: { date: Date; view: string }) => {
     if (view !== 'month') return ''
-    const ds = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    const ds = formatDate(date)
     return moodMap[ds] ? 'has-mood-entry' : ''
   }, [moodMap])
 
@@ -237,8 +240,13 @@ export default function DashboardClient({
             </button>
           </div>
 
-          <div className="space-y-2 overflow-y-auto flex-1 max-h-[340px] pr-1">
-            {todos.map(todo => {
+          <div className="space-y-2 overflow-y-auto flex-1 max-h-[340px] pr-1 flex flex-col">
+            {todos.length === 0 ? (
+              <div className="flex items-center justify-center flex-1 min-h-[100px]">
+                <p className="text-gray-400 text-center text-sm">No tasks for this day. Add one above!</p>
+              </div>
+            ) : (
+            todos.map(todo => {
               const isEditing = editingTodoId === todo.id
               return (
                 <div key={todo.id} className="rounded-xl border border-gray-100 bg-white/60 hover:bg-white/90 transition-colors group shadow-sm overflow-hidden">
@@ -278,10 +286,7 @@ export default function DashboardClient({
                   </div>
                 </div>
               )
-            })}
-
-            {todos.length === 0 && (
-              <p className="text-gray-400 text-center py-6 text-sm">No tasks for this day. Add one above!</p>
+            })
             )}
           </div>
         </div>

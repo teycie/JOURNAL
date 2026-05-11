@@ -52,7 +52,7 @@ export async function saveJournalEntry(
   }
 }
 
-// Add a new todo for a specific date
+// Add a new todo for a specific date, keyed by user_id + entry_date
 export async function addTodo(
   userId: string,
   date: string,
@@ -61,6 +61,11 @@ export async function addTodo(
 ) {
   const supabase = await createClient()
 
+  if (!date || !date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    console.error('Invalid date format:', date)
+    return { id: 'local-' + Date.now(), user_id: userId, entry_date: date, title, subtasks: [], completed: false }
+  }
+
   const { data, error } = await supabase
     .from('todos')
     .insert({
@@ -68,13 +73,13 @@ export async function addTodo(
       entry_date: date,
       title,
       completed: false,
-      subtasks: JSON.stringify(subtasks),
+      subtasks: JSON.stringify(subtasks || []),
     })
     .select()
     .single()
 
   if (error) {
-    console.error('Failed to add todo:', error.message)
+    console.error('Failed to add todo for date', date, ':', error.message)
     // Return optimistic fallback for UI
     return {
       id: 'local-' + Date.now(),
@@ -167,6 +172,11 @@ export async function getMoodMap(userId: string) {
 export async function getTodosForDate(userId: string, date: string) {
   const supabase = await createClient()
 
+  if (!date || !date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    console.error('Invalid date format for getTodosForDate:', date)
+    return []
+  }
+
   const { data, error } = await supabase
     .from('todos')
     .select('*')
@@ -175,7 +185,7 @@ export async function getTodosForDate(userId: string, date: string) {
     .order('created_at', { ascending: true })
 
   if (error) {
-    console.error('Failed to fetch todos for date:', error.message)
+    console.error('Failed to fetch todos for date', date, ':', error.message)
     return []
   }
 
