@@ -1,4 +1,4 @@
--- Migration: Make todos independent of journal_entries
+-- Migration: Make todos independent of journal_entries and persist by date
 -- Run this in your Supabase SQL Editor
 
 -- 1. Add user_id directly to todos (so tasks don't need a diary entry to exist)
@@ -21,7 +21,10 @@ update todos t
   where t.entry_id = je.id
     and t.user_id is null;
 
--- 5. Update RLS policies to be user-scoped (drop old ones, add new)
+-- 5. Create composite index on (user_id, entry_date) for fast date-based queries
+create index if not exists idx_todos_user_date on todos(user_id, entry_date);
+
+-- 6. Update RLS policies to be user-scoped (drop old ones, add new)
 drop policy if exists "Authenticated users can view todos" on todos;
 drop policy if exists "Authenticated users can insert todos" on todos;
 drop policy if exists "Authenticated users can update todos" on todos;
