@@ -1,6 +1,7 @@
 import Link from 'next/link'
-import { Flower2, LayoutDashboard, BookHeart, User, LogOut } from 'lucide-react'
+import { Flower2, LogOut } from 'lucide-react'
 import { logout } from '../(auth)/actions'
+import { DesktopNav, MobileNav } from './Navigation'
 
 export default function DashboardLayout({
   children,
@@ -16,20 +17,7 @@ export default function DashboardLayout({
           <span className="font-serif text-2xl font-bold text-foreground">Bloomly</span>
         </div>
 
-        <nav className="flex-1 space-y-2">
-          <Link href="/dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:bg-white/80 hover:text-primary-600 transition-colors font-medium">
-            <LayoutDashboard size={20} />
-            Dashboard
-          </Link>
-          <Link href="/journal" className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:bg-white/80 hover:text-primary-600 transition-colors font-medium">
-            <BookHeart size={20} />
-            Journal
-          </Link>
-          <Link href="/profile" className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:bg-white/80 hover:text-primary-600 transition-colors font-medium">
-            <User size={20} />
-            Profile
-          </Link>
-        </nav>
+        <DesktopNav />
 
         <div className="mt-auto pt-4 border-t border-gray-200/50">
           <form action={logout}>
@@ -50,12 +38,7 @@ export default function DashboardLayout({
             <span className="font-serif text-xl font-bold text-foreground">Bloomly</span>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/dashboard" className="p-2 text-gray-600 hover:text-primary-600">
-              <LayoutDashboard size={20} />
-            </Link>
-            <Link href="/journal" className="p-2 text-gray-600 hover:text-primary-600">
-              <BookHeart size={20} />
-            </Link>
+            <MobileNav />
             <form action={logout}>
               <button className="p-2 text-gray-600 hover:text-red-600">
                 <LogOut size={20} />

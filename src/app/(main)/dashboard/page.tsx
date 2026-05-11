@@ -1,7 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import DashboardClient from './DashboardClient'
-import { getMoodMap } from './actions'
+import { getMoodMap, getTodosForDate } from './actions'
 
 export default async function DashboardPage({
   searchParams,
@@ -19,26 +19,18 @@ export default async function DashboardPage({
   const params = await searchParams
   const selectedDate = params.date || new Date().toISOString().split('T')[0]
 
-  // Fetch entry for the selected date
+  // Fetch diary entry for selected date
   const { data: entry } = await supabase
     .from('journal_entries')
     .select('*')
     .eq('user_id', user.id)
     .eq('entry_date', selectedDate)
-    .single()
+    .maybeSingle()
 
-  // Fetch todos for the selected entry (if it exists)
-  let todos: any[] = []
-  if (entry) {
-    const { data: fetchedTodos } = await supabase
-      .from('todos')
-      .select('*')
-      .eq('entry_id', entry.id)
-      .order('created_at', { ascending: true })
-    if (fetchedTodos) todos = fetchedTodos
-  }
+  // Fetch todos independently by date (not tied to diary save)
+  const todos = await getTodosForDate(user.id, selectedDate)
 
-  // Fetch all mood entries for the calendar emoji display
+  // Mood map for calendar emoji display
   const moodMap = await getMoodMap(user.id)
 
   return (
@@ -49,7 +41,7 @@ export default async function DashboardPage({
       </header>
       
       <DashboardClient 
-        initialEntry={entry} 
+        initialEntry={entry ?? null} 
         initialTodos={todos} 
         userId={user.id}
         moodMap={moodMap}

@@ -1,18 +1,17 @@
 'use client'
 
-import { useState, useTransition, useCallback } from 'react'
+import { useState, useTransition, useCallback, useEffect, useRef } from 'react'
 import Calendar from 'react-calendar'
 import 'react-calendar/dist/Calendar.css'
-import { Plus, Check, Trash2, Loader2, BookOpen } from 'lucide-react'
+import { Plus, Check, Trash2, Loader2, BookOpen, ChevronDown, ChevronUp } from 'lucide-react'
 import './calendar-override.css'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { saveJournalEntry, addTodo, updateTodoStatus, deleteTodoAction } from './actions'
+import { saveJournalEntry, addTodo, updateTodoStatus, deleteTodoAction, updateTodoTitle } from './actions'
 
-type Todo = { id: string; task: string; title: string; completed: boolean }
+type Todo = { id: string; title: string; completed: boolean; entry_date?: string }
 type Entry = { id: string; title?: string; content: string; mood: string; entry_date: string }
 type MoodMap = { [date: string]: string }
 
-// Expanded iPhone-style emoji moods
 const MOODS = [
   { emoji: '🥰', label: 'Loved' },
   { emoji: '😄', label: 'Happy' },
@@ -28,6 +27,10 @@ const MOODS = [
   { emoji: '🥳', label: 'Excited' },
 ]
 
+function parseTodo(raw: any): Todo {
+  return { id: raw.id, title: raw.title || raw.task || 'Task', completed: !!raw.completed }
+}
+
 export default function DashboardClient({
   initialEntry,
   initialTodos,
@@ -35,7 +38,7 @@ export default function DashboardClient({
   moodMap: initialMoodMap = {}
 }: {
   initialEntry: Entry | null
-  initialTodos: Todo[]
+  initialTodos: any[]
   userId: string
   moodMap?: MoodMap
 }) {
@@ -44,26 +47,48 @@ export default function DashboardClient({
   const [isPending, startTransition] = useTransition()
 
   const selectedDateStr = searchParams.get('date') || new Date().toISOString().split('T')[0]
-  const selectedDate = new Date(selectedDateStr + 'T12:00:00Z')
+  const [y, m, d] = selectedDateStr.split('-').map(Number)
+  const selectedDate = new Date(y, m - 1, d)
 
-  const [todos, setTodos] = useState<Todo[]>(initialTodos)
-  const [newTodoTitle, setNewTodoTitle] = useState('')
-  const [newTodoTask, setNewTodoTask] = useState('')
-  const [showAddForm, setShowAddForm] = useState(false)
-
+  // ── Diary state – keyed by date so it resets when date changes ──────────
+  const prevDateRef = useRef(selectedDateStr)
   const [mood, setMood] = useState<string>(initialEntry?.mood || '')
   const [diaryTitle, setDiaryTitle] = useState(initialEntry?.title || '')
   const [content, setContent] = useState(initialEntry?.content || '')
-  const [isSaving, setIsSaving] = useState(false)
-
-  // Track the saved entry ID so tasks can be added after saving without a page reload
   const [savedEntryId, setSavedEntryId] = useState<string | undefined>(initialEntry?.id)
-  // Live mood map that updates after save so calendar reflects new entries immediately
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+
+  // ── Todos state – also keyed by date ────────────────────────────────────
+  const [todos, setTodos] = useState<Todo[]>(initialTodos.map(parseTodo))
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null)
+  const [editingTodoTitle, setEditingTodoTitle] = useState('')
+
   const [moodMap, setMoodMap] = useState<MoodMap>(initialMoodMap)
+  const [calendarActiveStart, setCalendarActiveStart] = useState<Date>(() => new Date(y, m - 1, 1))
+
+  // When the server re-renders with new initialEntry/initialTodos (after date
+  // change via router.push + router.refresh), sync client state to new props.
+  useEffect(() => {
+    if (prevDateRef.current === selectedDateStr) return
+    prevDateRef.current = selectedDateStr
+
+    // Reset diary fields
+    setMood(initialEntry?.mood || '')
+    setDiaryTitle(initialEntry?.title || '')
+    setContent(initialEntry?.content || '')
+    setSavedEntryId(initialEntry?.id)
+
+    // Reset todos
+    setTodos(initialTodos.map(parseTodo))
+    setEditingTodoId(null)
+    setEditingTodoTitle('')
+  }, [selectedDateStr, initialEntry, initialTodos])
 
   const handleDateChange = (val: Date) => {
-    const newDate = val.toISOString().split('T')[0]
-    router.push(`/dashboard?date=${newDate}`)
+    const dt = val
+    const dateStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+    router.push(`/dashboard?date=${dateStr}`)
   }
 
   const handleSaveEntry = async () => {
@@ -72,75 +97,89 @@ export default function DashboardClient({
       const result = await saveJournalEntry(userId, selectedDateStr, content, mood, savedEntryId, diaryTitle)
       if (result.success && result.data) {
         setSavedEntryId(result.data.id)
-        // Update local mood map so calendar emoji appears immediately
-        if (mood) {
-          setMoodMap(prev => ({ ...prev, [selectedDateStr]: mood }))
-        }
+        if (mood) setMoodMap(prev => ({ ...prev, [selectedDateStr]: mood }))
+        setSaveSuccess(true)
+        setTimeout(() => setSaveSuccess(false), 2000)
         router.refresh()
       } else {
-        console.error(result.message)
         alert(`Failed to save entry: ${result.message}`)
       }
-    } catch (e) {
-      console.error(e)
-      alert("Failed to save entry.")
+    } catch {
+      alert('Failed to save entry.')
     } finally {
       setIsSaving(false)
     }
   }
 
-  const handleAddTodo = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newTodoTitle.trim()) return
+  const handleAddEmptyTodo = async () => {
+    const optimistic: Todo = {
+      id: 'temp-' + Date.now(),
+      title: '',
+      completed: false,
+    }
+    setTodos(prev => [...prev, optimistic])
+    setEditingTodoId(optimistic.id)
+    setEditingTodoTitle('')
+  }
 
-    if (!savedEntryId) {
-      alert("Please save your diary entry first before adding tasks.")
+  const handleSaveEdit = async (id: string, newTitle: string) => {
+    const trimmed = newTitle.trim()
+    if (!trimmed) {
+      if (id.startsWith('temp-')) {
+        setTodos(prev => prev.filter(t => t.id !== id))
+      } else {
+        deleteTodo(id)
+      }
+      setEditingTodoId(null)
       return
     }
 
-    const optimisticTodo: Todo = {
-      id: 'temp-' + Date.now(),
-      title: newTodoTitle,
-      task: newTodoTask,
-      completed: false
-    }
-    setTodos(prev => [...prev, optimisticTodo])
-    setNewTodoTitle('')
-    setNewTodoTask('')
-    setShowAddForm(false)
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, title: trimmed } : t))
+    setEditingTodoId(null)
 
-    startTransition(async () => {
-      try {
-        const added = await addTodo(savedEntryId, newTodoTask || newTodoTitle, newTodoTitle)
-        setTodos(prev => prev.map(t => t.id === optimisticTodo.id ? added : t))
-      } catch (e) {
-        console.error(e)
-        setTodos(prev => prev.filter(t => t.id !== optimisticTodo.id))
-      }
-    })
+    if (id.startsWith('temp-')) {
+      startTransition(async () => {
+        try {
+          const added = await addTodo(userId, selectedDateStr, trimmed, [])
+          setTodos(prev => prev.map(t => t.id === id ? { ...parseTodo(added), id: added.id || id } : t))
+        } catch {
+          setTodos(prev => prev.filter(t => t.id !== id))
+        }
+      })
+    } else {
+      startTransition(async () => {
+        await updateTodoTitle(id, trimmed)
+      })
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, id: string) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSaveEdit(id, editingTodoTitle)
+    } else if (e.key === 'Escape') {
+      if (id.startsWith('temp-')) setTodos(prev => prev.filter(t => t.id !== id))
+      setEditingTodoId(null)
+    }
   }
 
   const toggleTodo = (id: string, currentStatus: boolean) => {
-    setTodos(todos.map(t => t.id === id ? { ...t, completed: !currentStatus } : t))
-    startTransition(async () => {
-      await updateTodoStatus(id, !currentStatus)
-    })
+    if (id.startsWith('temp-')) return
+    const newDone = !currentStatus
+    setTodos(todos.map(t => t.id === id ? { ...t, completed: newDone } : t))
+    startTransition(async () => { await updateTodoStatus(id, newDone) })
   }
 
   const deleteTodo = (id: string) => {
     setTodos(todos.filter(t => t.id !== id))
-    startTransition(async () => {
-      await deleteTodoAction(id)
-    })
+    startTransition(async () => { await deleteTodoAction(id) })
   }
 
-  // Replace day number with emoji if there is a mood entry on that day
   const tileContent = useCallback(({ date, view }: { date: Date; view: string }) => {
     if (view !== 'month') return null
-    const dateStr = date.toISOString().split('T')[0]
-    const dayMood = moodMap[dateStr]
+    const ds = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    const dayMood = moodMap[ds]
     if (!dayMood) return null
-    // Return just the emoji — the day number is hidden via CSS when this renders
     return (
       <div className="calendar-emoji-day" aria-label={dayMood}>
         <span style={{ fontSize: '1rem', lineHeight: 1, display: 'block' }}>{dayMood}</span>
@@ -150,19 +189,19 @@ export default function DashboardClient({
 
   const tileClassName = useCallback(({ date, view }: { date: Date; view: string }) => {
     if (view !== 'month') return ''
-    const dateStr = date.toISOString().split('T')[0]
-    return moodMap[dateStr] ? 'has-mood-entry' : ''
+    const ds = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    return moodMap[ds] ? 'has-mood-entry' : ''
   }, [moodMap])
 
-  const selectedMoodInfo = MOODS.find(m => m.emoji === mood)
+  const selectedMoodInfo = MOODS.find(mo => mo.emoji === mood)
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-full pb-8">
 
-      {/* Left Column: Calendar & Todos (bigger) */}
+      {/* Left: Calendar + Todos */}
       <div className="lg:col-span-7 flex flex-col gap-6">
 
-        {/* Calendar Panel */}
+        {/* Calendar */}
         <div className="glass-panel p-6 flex flex-col items-center relative">
           {isPending && (
             <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl">
@@ -172,96 +211,83 @@ export default function DashboardClient({
           <Calendar
             onChange={(val) => handleDateChange(val as Date)}
             value={selectedDate}
+            activeStartDate={calendarActiveStart}
+            onActiveStartDateChange={({ activeStartDate }) => {
+              if (activeStartDate) setCalendarActiveStart(activeStartDate)
+            }}
             className="w-full border-none !bg-transparent font-sans"
             tileContent={tileContent}
             tileClassName={tileClassName}
           />
         </div>
 
-        {/* To-Do List Panel */}
+        {/* To-Do List */}
         <div className="glass-panel p-6 flex-1 flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-serif font-semibold text-xl text-foreground">To-do List</h3>
+            <div>
+              <h3 className="font-serif font-semibold text-xl text-foreground">To-do List</h3>
+              <p className="text-xs text-gray-400 mt-0.5">{selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+            </div>
             <button
-              onClick={() => setShowAddForm(v => !v)}
+              onClick={handleAddEmptyTodo}
               className="p-2 bg-primary-100 text-primary-600 rounded-xl hover:bg-primary-200 transition-colors flex items-center gap-1 text-sm font-medium px-3"
-              title={!savedEntryId ? 'Save diary entry first' : 'Add task'}
             >
               <Plus size={16} />
               Add Task
             </button>
           </div>
 
+          <div className="space-y-2 overflow-y-auto flex-1 max-h-[340px] pr-1">
+            {todos.map(todo => {
+              const isEditing = editingTodoId === todo.id
+              return (
+                <div key={todo.id} className="rounded-xl border border-gray-100 bg-white/60 hover:bg-white/90 transition-colors group shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-3 p-3">
+                    <button
+                      onClick={() => !isEditing && toggleTodo(todo.id, todo.completed)}
+                      className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${todo.completed ? 'bg-primary-500 border-primary-500 text-white' : 'border-gray-300 hover:border-primary-400'}`}
+                    >
+                      {todo.completed && <Check size={11} />}
+                    </button>
 
-          {/* Add task form */}
-          {showAddForm && (
-            <form onSubmit={handleAddTodo} className="mb-4 p-4 bg-primary-50/60 rounded-xl border border-primary-100 space-y-2">
-              <div>
-                <label className="text-xs font-semibold text-primary-600 mb-1 block">Task Title</label>
-                <input
-                  type="text"
-                  value={newTodoTitle}
-                  onChange={e => setNewTodoTitle(e.target.value)}
-                  required
-                  autoFocus
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 text-sm font-semibold"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-500 mb-1 block">Task Description (optional)</label>
-                <input
-                  type="text"
-                  value={newTodoTask}
-                  onChange={e => setNewTodoTask(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 text-sm"
-                />
-              </div>
-              <div className="flex gap-2 pt-1">
-                <button type="submit" className="btn-primary text-sm px-4 py-1.5">Add</button>
-                <button type="button" onClick={() => setShowAddForm(false)} className="btn-secondary text-sm px-4 py-1.5">Cancel</button>
-              </div>
-            </form>
-          )}
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        autoFocus
+                        value={editingTodoTitle}
+                        onChange={e => setEditingTodoTitle(e.target.value)}
+                        onBlur={() => handleSaveEdit(todo.id, editingTodoTitle)}
+                        onKeyDown={e => handleKeyDown(e, todo.id)}
+                        className="flex-1 bg-transparent border-b border-primary-400 focus:outline-none text-sm font-semibold text-foreground px-1"
+                      />
+                    ) : (
+                      <span
+                        className={`flex-1 font-semibold text-sm cursor-text transition-all ${todo.completed ? 'text-gray-400 line-through' : 'text-foreground'}`}
+                        onClick={() => { setEditingTodoId(todo.id); setEditingTodoTitle(todo.title) }}
+                      >
+                        {todo.title || 'Untitled Task'}
+                      </span>
+                    )}
 
-          <div className="space-y-3 overflow-y-auto flex-1 max-h-[320px] pr-1">
-            {todos.map(todo => (
-              <div key={todo.id} className="p-3 rounded-xl border border-gray-100 bg-white/60 hover:bg-white/90 transition-colors group shadow-sm">
-                {/* Task Title */}
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-semibold text-sm text-foreground">
-                    {todo.title || 'Task'}
-                  </span>
-                  <button
-                    onClick={() => deleteTodo(todo.id)}
-                    className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                {/* Checkable Item */}
-                <button
-                  onClick={() => toggleTodo(todo.id, todo.completed)}
-                  className="flex items-center gap-3 w-full text-left"
-                >
-                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${todo.completed ? 'bg-primary-500 border-primary-500 text-white' : 'border-gray-300 hover:border-primary-400'}`}>
-                    {todo.completed && <Check size={12} />}
+                    <button
+                      onClick={() => deleteTodo(todo.id)}
+                      className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-1"
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </div>
-                  <span className={`text-sm transition-all flex-1 ${todo.completed ? 'line-through text-gray-400' : 'text-gray-600'}`}>
-                    {todo.task || todo.title}
-                  </span>
-                </button>
-              </div>
-            ))}
+                </div>
+              )
+            })}
+
             {todos.length === 0 && (
-              <p className="text-gray-400 text-center py-6 text-sm">
-                {savedEntryId ? 'No tasks yet. Add one above!' : 'Save your diary entry first to add tasks.'}
-              </p>
+              <p className="text-gray-400 text-center py-6 text-sm">No tasks for this day. Add one above!</p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Right Column: Journal Entry (smaller) */}
+      {/* Right: Daily Diary */}
       <div className="lg:col-span-5 glass-panel p-6 lg:p-8 flex flex-col relative">
         {isPending && (
           <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl">
@@ -269,30 +295,30 @@ export default function DashboardClient({
           </div>
         )}
 
-        {/* Diary Header */}
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-2">
           <BookOpen className="w-5 h-5 text-primary-500 shrink-0" />
           <h2 className="text-xl font-serif font-semibold text-foreground">Daily Diary</h2>
         </div>
+        <p className="text-gray-400 text-xs mb-4">
+          {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        </p>
 
-        <p className="text-gray-400 text-xs mb-4">{selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
-
-        {/* How was your day / Mood */}
+        {/* Mood */}
         <div className="mb-4">
           <p className="text-sm font-medium text-gray-500 mb-2">How was your day?</p>
           <div className="flex flex-wrap gap-2 bg-white/50 p-2 rounded-2xl border border-gray-100 shadow-sm">
-            {MOODS.map(m => (
+            {MOODS.map(mo => (
               <button
-                key={m.emoji}
-                onClick={() => setMood(m.emoji)}
-                title={m.label}
-                className={`relative flex flex-col items-center gap-0.5 p-2 rounded-xl transition-all duration-200 group ${mood === m.emoji ? 'bg-primary-100 scale-110 shadow-sm' : 'hover:bg-gray-50 hover:scale-105 opacity-60 hover:opacity-100'}`}
+                key={mo.emoji}
+                onClick={() => setMood(mo.emoji)}
+                title={mo.label}
+                className={`relative flex flex-col items-center gap-0.5 p-2 rounded-xl transition-all duration-200 group ${mood === mo.emoji ? 'bg-primary-100 scale-110 shadow-sm' : 'hover:bg-gray-50 hover:scale-105 opacity-60 hover:opacity-100'}`}
               >
-                <span style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif', fontSize: '1.35rem' }}>
-                  {m.emoji}
+                <span style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', fontSize: '1.35rem' }}>
+                  {mo.emoji}
                 </span>
-                <span className={`text-[9px] font-medium transition-all ${mood === m.emoji ? 'text-primary-600 opacity-100' : 'text-gray-400 opacity-0 group-hover:opacity-100'}`}>
-                  {m.label}
+                <span className={`text-[9px] font-medium transition-all ${mood === mo.emoji ? 'text-primary-600 opacity-100' : 'text-gray-400 opacity-0 group-hover:opacity-100'}`}>
+                  {mo.label}
                 </span>
               </button>
             ))}
@@ -304,7 +330,7 @@ export default function DashboardClient({
           )}
         </div>
 
-        {/* Diary Title Input — AFTER mood */}
+        {/* Title */}
         <input
           type="text"
           value={diaryTitle}
@@ -313,7 +339,7 @@ export default function DashboardClient({
           className="w-full px-0 py-2 mb-1 bg-transparent border-b-2 border-gray-200 focus:border-primary-400 focus:outline-none text-lg font-serif font-semibold text-foreground placeholder:text-gray-300 transition-colors"
         />
 
-        {/* Journal Text */}
+        {/* Thoughts */}
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
@@ -321,15 +347,22 @@ export default function DashboardClient({
           className="flex-1 w-full bg-transparent resize-none focus:outline-none text-gray-700 leading-relaxed min-h-[180px] text-sm mt-3"
         />
 
-        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-end">
-          <button
-            onClick={handleSaveEntry}
-            disabled={isSaving}
-            className="btn-primary px-6 flex items-center gap-2 disabled:opacity-70"
-          >
-            {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isSaving ? 'Saving...' : 'Save Entry'}
-          </button>
+        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+          {saveSuccess && (
+            <span className="text-sm text-emerald-500 font-medium flex items-center gap-1">
+              <Check size={14} /> Saved!
+            </span>
+          )}
+          <div className="ml-auto">
+            <button
+              onClick={handleSaveEntry}
+              disabled={isSaving}
+              className="btn-primary px-6 flex items-center gap-2 disabled:opacity-70"
+            >
+              {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isSaving ? 'Saving...' : 'Save Entry'}
+            </button>
+          </div>
         </div>
       </div>
 

@@ -176,6 +176,17 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
 
                 <div className="space-y-4">
                   <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700">Name</label>
+                    <input
+                      type="text"
+                      value={displayName}
+                      onChange={e => setDisplayName(e.target.value)}
+                      placeholder="Your display name"
+                      className="w-full px-4 py-2 rounded-xl bg-white/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                    />
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-medium mb-1 text-gray-700">Email Address</label>
                     <input
                       type="email"
@@ -184,16 +195,6 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
                       className="w-full px-4 py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-500 cursor-not-allowed"
                     />
                     <p className="text-xs text-gray-400 mt-1">Your email cannot be changed at this time.</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1 text-gray-700">Name</label>
-                    <input
-                      type="text"
-                      value={displayName}
-                      onChange={e => setDisplayName(e.target.value)}
-                      className="w-full px-4 py-2 rounded-xl bg-white/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-                    />
                   </div>
 
                   <div className="pt-4 border-t border-gray-100 flex justify-end">

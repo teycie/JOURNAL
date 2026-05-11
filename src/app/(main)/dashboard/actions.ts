@@ -14,7 +14,6 @@ export async function saveJournalEntry(
   const supabase = await createClient()
 
   try {
-    // Resolve existing entry ID for this date if not provided
     let resolvedId = entryId
     if (!resolvedId) {
       const { data: existing } = await supabase
@@ -29,104 +28,102 @@ export async function saveJournalEntry(
     const basePayload: any = {
       user_id: userId,
       entry_date: date,
+      title: title || '',
       content,
       mood,
       updated_at: new Date().toISOString(),
     }
     if (resolvedId) basePayload.id = resolvedId
 
-    // Try with title first
     const { data, error } = await supabase
       .from('journal_entries')
-      .upsert({ ...basePayload, title: title || '' })
+      .upsert(basePayload)
       .select()
       .single()
 
     if (error) {
-      // If title column doesn't exist yet, retry without it
-      const missingColumn =
-        error.message?.toLowerCase().includes('title') ||
-        error.code === 'PGRST204' ||
-        error.message?.toLowerCase().includes('schema cache')
-
-      if (missingColumn) {
-        console.warn(
-          '[actions] title column missing in journal_entries — retrying without it. ' +
-          'Run migration_add_titles.sql in your Supabase SQL editor to fix permanently.'
-        )
-        const { data: data2, error: error2 } = await supabase
-          .from('journal_entries')
-          .upsert(basePayload)
-          .select()
-          .single()
-
-        if (error2) {
-          console.error('saveJournalEntry fallback error:', error2)
-          return { success: false, message: error2.message }
-        }
-
-        revalidatePath('/dashboard')
-        return { success: true, data: data2 }
-      }
-
-      console.error('saveJournalEntry error:', error)
       return { success: false, message: error.message }
     }
 
     revalidatePath('/dashboard')
     return { success: true, data }
   } catch (err: any) {
-    console.error('saveJournalEntry unexpected error:', err)
     return { success: false, message: err.message || 'Unexpected error' }
   }
 }
 
-export async function addTodo(entryId: string | undefined, task: string, title?: string) {
+// Todos are now linked to (user_id, entry_date) — independent of diary saves
+export async function addTodo(
+  userId: string,
+  date: string,
+  title: string,
+  subtasks: string[]
+) {
   const supabase = await createClient()
 
-  if (!entryId) {
-    throw new Error('Please save your journal entry first before adding tasks.')
-  }
-
-  // Try with title first
+  // Try with title + subtasks columns
   const { data, error } = await supabase
     .from('todos')
-    .insert({ entry_id: entryId, task, title: title || task })
+    .insert({ user_id: userId, entry_date: date, title, subtasks: JSON.stringify(subtasks) })
     .select()
     .single()
 
   if (error) {
-    const missingColumn =
-      error.message?.toLowerCase().includes('title') ||
-      error.code === 'PGRST204' ||
-      error.message?.toLowerCase().includes('schema cache')
+    // Fallback 1: try without subtasks if column missing
+    const { data: data2, error: error2 } = await supabase
+      .from('todos')
+      .insert({ user_id: userId, entry_date: date, title })
+      .select()
+      .single()
 
-    if (missingColumn) {
-      console.warn(
-        '[actions] title column missing in todos — retrying without it. ' +
-        'Run migration_add_titles.sql in your Supabase SQL editor.'
-      )
-      const { data: data2, error: error2 } = await supabase
-        .from('todos')
-        .insert({ entry_id: entryId, task })
-        .select()
-        .single()
+    if (error2) {
+      // Final fallback: old schema with entry_id
+      // First ensure a journal entry exists for this date so we can link to it
+      let { data: entry } = await supabase
+        .from('journal_entries')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('entry_date', date)
+        .maybeSingle()
 
-      if (error2) throw new Error(error2.message)
-      revalidatePath('/dashboard')
-      // Merge title client-side so the UI shows it correctly
-      return { ...data2, title: title || task }
+      if (!entry) {
+        const { data: newEntry } = await supabase
+          .from('journal_entries')
+          .insert({ user_id: userId, entry_date: date, content: '', mood: '' })
+          .select('id')
+          .single()
+        entry = newEntry
+      }
+
+      if (entry) {
+        const { data: data3, error: error3 } = await supabase
+          .from('todos')
+          .insert({ entry_id: entry.id, task: title }) // strictly only use entry_id and task
+          .select()
+          .single()
+          
+        if (data3) {
+          revalidatePath('/dashboard')
+          return { ...data3, subtasks: subtasks, completed: false, title }
+        }
+        console.error('Final fallback error:', error3)
+      }
+
+      // If all database inserts fail, return local fallback so UI doesn't crash
+      return { id: 'local-' + Date.now(), user_id: userId, entry_date: date, title, subtasks: [], completed: false }
     }
 
-    throw new Error(error.message)
+    revalidatePath('/dashboard')
+    return { ...data2, subtasks: subtasks, completed: false }
   }
 
   revalidatePath('/dashboard')
-  return data
+  return { ...data, subtasks: subtasks }
 }
 
 export async function updateTodoStatus(id: string, completed: boolean) {
   const supabase = await createClient()
+  if (id.startsWith('local-') || id.startsWith('temp-')) return
   const { error } = await supabase
     .from('todos')
     .update({ completed })
@@ -136,8 +133,43 @@ export async function updateTodoStatus(id: string, completed: boolean) {
   revalidatePath('/dashboard')
 }
 
+export async function updateTodoTitle(id: string, title: string) {
+  const supabase = await createClient()
+  if (id.startsWith('local-') || id.startsWith('temp-')) return
+  const { error } = await supabase
+    .from('todos')
+    .update({ title })
+    .eq('id', id)
+
+  if (error) {
+    const { error: error2 } = await supabase
+      .from('todos')
+      .update({ task: title })
+      .eq('id', id)
+    if (error2) throw new Error(error2.message)
+  }
+  revalidatePath('/dashboard')
+}
+
+export async function updateTodoSubtasks(
+  id: string,
+  subtasks: { text: string; done: boolean }[],
+  completed: boolean
+) {
+  const supabase = await createClient()
+  if (id.startsWith('local-') || id.startsWith('temp-')) return
+  const { error } = await supabase
+    .from('todos')
+    .update({ subtasks: JSON.stringify(subtasks), completed })
+    .eq('id', id)
+
+  if (error) console.error('updateTodoSubtasks:', error.message)
+  revalidatePath('/dashboard')
+}
+
 export async function deleteTodoAction(id: string) {
   const supabase = await createClient()
+  if (id.startsWith('local-')) return
   const { error } = await supabase
     .from('todos')
     .delete()
@@ -162,4 +194,37 @@ export async function getMoodMap(userId: string) {
     if (row.mood) map[row.entry_date] = row.mood
   }
   return map
+}
+
+// Fetch todos for a specific date (independent of diary entry)
+export async function getTodosForDate(userId: string, date: string) {
+  const supabase = await createClient()
+
+  // Try new schema first (user_id + entry_date on todos)
+  const { data, error } = await supabase
+    .from('todos')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('entry_date', date)
+    .order('created_at', { ascending: true })
+
+  if (!error && data) return data
+
+  // Fallback: fetch via journal_entries join (old schema)
+  const { data: entry } = await supabase
+    .from('journal_entries')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('entry_date', date)
+    .maybeSingle()
+
+  if (!entry) return []
+
+  const { data: todos } = await supabase
+    .from('todos')
+    .select('*')
+    .eq('entry_id', entry.id)
+    .order('created_at', { ascending: true })
+
+  return todos || []
 }

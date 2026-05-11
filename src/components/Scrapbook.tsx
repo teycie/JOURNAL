@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Plus, Trash2, ChevronLeft, ChevronRight, Bold, Italic, Underline, Type, Image as ImageIcon, X, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, Bold, Italic, Underline, Type, Image as ImageIcon, X, AlertTriangle, RotateCcw, RotateCw } from 'lucide-react'
 
 export type ScrapbookImage = {
   id: string
@@ -28,6 +28,12 @@ export type ScrapbookText = {
 export type ScrapbookPage = {
   images: ScrapbookImage[]
   texts?: ScrapbookText[]
+}
+
+/* ─── Robust ID generator ──────────────────────────────────────── */
+function genId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
+  return Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
 }
 
 /* ─── Resize / Drag helpers ──────────────────────────────────────────────── */
@@ -127,6 +133,21 @@ function ImageItem({
             className="absolute -top-3 -right-3 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-red-600 z-20"
           >
             <X size={12} />
+          </button>
+          {/* Rotation buttons — constrained to ±80° (160° total) */}
+          <button
+            onClick={e => { e.stopPropagation(); onUpdate({ rotation: Math.max(-80, image.rotation - 15) }) }}
+            className="absolute -top-3 left-0 w-6 h-6 bg-white border border-gray-200 text-gray-600 rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 z-20"
+            title="Rotate left"
+          >
+            <RotateCcw size={10} />
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); onUpdate({ rotation: Math.min(80, image.rotation + 15) }) }}
+            className="absolute -top-3 left-7 w-6 h-6 bg-white border border-gray-200 text-gray-600 rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 z-20"
+            title="Rotate right"
+          >
+            <RotateCw size={10} />
           </button>
           {/* Resize handle SE */}
           <div
@@ -264,9 +285,9 @@ function PageCanvas({
       {/* Grid lines watermark */}
       <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
 
-      {(page.texts || []).map(txt => (
+      {(page.texts || []).map((txt, i) => (
         <TextItem
-          key={txt.id}
+          key={txt.id || `txt-${pageIndex}-${i}`}
           text={txt}
           isSelected={selectedId === txt.id}
           pageRef={pageRef}
@@ -276,9 +297,9 @@ function PageCanvas({
         />
       ))}
 
-      {page.images.map(img => (
+      {page.images.map((img, i) => (
         <ImageItem
-          key={img.id}
+          key={img.id || `img-${pageIndex}-${i}`}
           image={img}
           isSelected={selectedId === img.id}
           pageRef={pageRef}
@@ -333,6 +354,7 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
   const [currentPageIndex, setCurrentPageIndex] = useState(0)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [activeSide, setActiveSide] = useState<'left' | 'right'>('left')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Store callback in a ref so it never causes a re-render loop
@@ -367,14 +389,15 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
   const handleAddImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
     const url = URL.createObjectURL(file)
-    const img: ScrapbookImage = { id: Math.random().toString(36).slice(2), url, x: 15, y: 15, width: 40, height: 40, rotation: (Math.random() - 0.5) * 8, zIndex: Date.now() }
-    setPagesMut(ps => { ps[currentPageIndex].images.push(img); return ps })
+    const img: ScrapbookImage = { id: genId(), url, x: 15, y: 15, width: 40, height: 40, rotation: (Math.random() - 0.5) * 8, zIndex: Date.now() }
+    const targetPageIdx = activeSide === 'right' ? currentPageIndex + 1 : currentPageIndex
+    setPagesMut(ps => { ps[targetPageIdx].images.push(img); return ps })
     setSelectedId(img.id)
     e.target.value = ''
   }
 
   const handleClickEmpty = (pi: number, x: number, y: number) => {
-    const txt: ScrapbookText = { id: Math.random().toString(36).slice(2), content: '', x, y, width: 40, fontSize: 14, color: '#2D3748', bold: false, italic: false, underline: false, zIndex: Date.now() }
+    const txt: ScrapbookText = { id: genId(), content: '', x, y, width: 40, fontSize: 14, color: '#2D3748', bold: false, italic: false, underline: false, zIndex: Date.now() }
     setPagesMut(ps => { ps[pi].texts = [...(ps[pi].texts || []), txt]; return ps })
     setSelectedId(txt.id)
   }
@@ -421,6 +444,30 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
       {/* Toolbar */}
       <div className="flex items-center justify-between w-full mb-6 bg-white/80 backdrop-blur-md p-3 rounded-2xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-2">
+          {/* Page side toggle */}
+          <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-0.5">
+            <button
+              onClick={() => setActiveSide('left')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeSide === 'left'
+                  ? 'bg-white text-primary-700 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              ← Left Page
+            </button>
+            <button
+              onClick={() => setActiveSide('right')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeSide === 'right'
+                  ? 'bg-white text-primary-700 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Right Page →
+            </button>
+          </div>
+
           <button
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors shadow-lg shadow-primary-200"
@@ -428,7 +475,7 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
             <ImageIcon size={16} /> Add Image
           </button>
           <button
-            onClick={() => handleClickEmpty(currentPageIndex, 20, 20)}
+            onClick={() => handleClickEmpty(activeSide === 'right' ? currentPageIndex + 1 : currentPageIndex, 20, 20)}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
           >
             <Type size={16} /> Add Text
@@ -473,7 +520,12 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
         <div className="absolute inset-0 bg-black/10 blur-3xl rounded-[3rem] -z-10 translate-y-8" />
         <div className="absolute inset-0 flex p-3 bg-[#4a3b2b] rounded-[2rem] shadow-2xl overflow-hidden border-8 border-[#3a2f22]">
           {/* Left Page */}
-          <div className="flex-1 bg-[#fdfdfb] shadow-[inset_-1px_0_10px_rgba(0,0,0,0.08)] rounded-l-xl relative overflow-hidden">
+          <div
+            className={`flex-1 bg-[#fdfdfb] shadow-[inset_-1px_0_10px_rgba(0,0,0,0.08)] rounded-l-xl relative overflow-hidden transition-all ${
+              activeSide === 'left' ? 'ring-2 ring-primary-400 ring-inset' : ''
+            }`}
+            onClick={() => setActiveSide('left')}
+          >
             <PageCanvas
               page={leftPage}
               pageIndex={currentPageIndex}
@@ -483,9 +535,12 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
               onDeleteImage={deleteImage}
               onUpdateText={updateText}
               onDeleteText={deleteText}
-              onClickEmpty={handleClickEmpty}
+              onClickEmpty={(pi, x, y) => { setActiveSide('left'); handleClickEmpty(pi, x, y) }}
             />
             <div className="absolute bottom-3 left-4 text-[10px] text-gray-300 font-serif tracking-widest pointer-events-none">{currentPageIndex + 1}</div>
+            {activeSide === 'left' && (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-primary-500/80 text-white text-[9px] font-semibold px-2 py-0.5 rounded-full pointer-events-none backdrop-blur-sm">Active</div>
+            )}
           </div>
 
           {/* Spine */}
@@ -494,7 +549,12 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
           </div>
 
           {/* Right Page */}
-          <div className="flex-1 bg-[#fdfdfb] shadow-[inset_1px_0_10px_rgba(0,0,0,0.08)] rounded-r-xl relative overflow-hidden">
+          <div
+            className={`flex-1 bg-[#fdfdfb] shadow-[inset_1px_0_10px_rgba(0,0,0,0.08)] rounded-r-xl relative overflow-hidden transition-all ${
+              activeSide === 'right' ? 'ring-2 ring-primary-400 ring-inset' : ''
+            }`}
+            onClick={() => setActiveSide('right')}
+          >
             <PageCanvas
               page={rightPage}
               pageIndex={currentPageIndex + 1}
@@ -504,14 +564,17 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
               onDeleteImage={deleteImage}
               onUpdateText={updateText}
               onDeleteText={deleteText}
-              onClickEmpty={handleClickEmpty}
+              onClickEmpty={(pi, x, y) => { setActiveSide('right'); handleClickEmpty(pi, x, y) }}
             />
             <div className="absolute bottom-3 right-4 text-[10px] text-gray-300 font-serif tracking-widest pointer-events-none">{currentPageIndex + 2}</div>
+            {activeSide === 'right' && (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-primary-500/80 text-white text-[9px] font-semibold px-2 py-0.5 rounded-full pointer-events-none backdrop-blur-sm">Active</div>
+            )}
           </div>
         </div>
       </div>
 
-      <p className="mt-3 text-xs text-gray-400 text-center">Click page to add text · drag images/text to move · drag corner handle to resize</p>
+      <p className="mt-3 text-xs text-gray-400 text-center">Toggle Left/Right page · click page to select it · drag to move · corner to resize · use ↺↻ to rotate images</p>
     </div>
   )
 }
