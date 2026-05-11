@@ -41,9 +41,10 @@ export async function POST(request: Request) {
       titleFontSize: book.titleFontSize ?? 28,
       titleColor: book.titleColor ?? null,
       titleRotation: book.titleRotation ?? 0,
+      pages: book.pages ?? [],
     }
 
-    const payload = {
+    const basePayload: Record<string, unknown> = {
       ...(book.id && uuidPattern.test(book.id) ? { id: book.id } : {}),
       user_id: user.id,
       title: book.title,
@@ -54,14 +55,42 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     }
 
-    const query = book.id && uuidPattern.test(book.id)
-      ? supabase.from('books').upsert(payload, { onConflict: 'id' })
-      : supabase.from('books').insert(payload)
+    const retryPayloads: Record<string, unknown>[] = [
+      basePayload,
+      {
+        ...(book.id && uuidPattern.test(book.id) ? { id: book.id } : {}),
+        user_id: user.id,
+        title: book.title,
+        cover_color: book.coverColor ?? null,
+        cover_url: book.coverImage ?? null,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        ...(book.id && uuidPattern.test(book.id) ? { id: book.id } : {}),
+        user_id: user.id,
+        title: book.title,
+        updated_at: new Date().toISOString(),
+      },
+    ]
 
-    const { data, error } = await query.select().single()
+    let data: unknown = null
+    let lastError: string | null = null
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    for (const payload of retryPayloads) {
+      const query = book.id && uuidPattern.test(book.id)
+        ? supabase.from('books').upsert(payload, { onConflict: 'id' })
+        : supabase.from('books').insert(payload)
+
+      const result = await query.select().single()
+      if (!result.error) {
+        data = result.data
+        break
+      }
+      lastError = result.error.message
+    }
+
+    if (!data) {
+      return NextResponse.json({ error: lastError ?? 'Failed to save book' }, { status: 500 })
     }
 
     return NextResponse.json({ book: data })

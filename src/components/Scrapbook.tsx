@@ -275,6 +275,8 @@ function PageCanvas({
   onClickEmpty: (pi: number, x: number, y: number) => void
 }) {
   const pageRef = useRef<HTMLDivElement>(null)
+  const safeTexts = (page.texts || []).filter(Boolean)
+  const safeImages = (page.images || []).filter(Boolean)
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.target !== pageRef.current) return
@@ -294,7 +296,7 @@ function PageCanvas({
       {/* Grid lines watermark */}
       <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
 
-      {(page.texts || []).map((txt, i) => (
+      {safeTexts.map((txt, i) => (
         <TextItem
           key={txt.id || `txt-${pageIndex}-${i}`}
           text={txt}
@@ -306,7 +308,7 @@ function PageCanvas({
         />
       ))}
 
-      {page.images.map((img, i) => (
+      {safeImages.map((img, i) => (
         <ImageItem
           key={img.id || `img-${pageIndex}-${i}`}
           image={img}
@@ -318,7 +320,7 @@ function PageCanvas({
         />
       ))}
 
-      {page.images.length === 0 && (page.texts || []).length === 0 && (
+      {safeImages.length === 0 && safeTexts.length === 0 && (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 gap-3 pointer-events-none">
           <ImageIcon size={40} strokeWidth={1} />
           <p className="font-serif italic text-sm">Click anywhere to add text · use toolbar to add images</p>
@@ -508,7 +510,7 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
       {/* Book */}
       <div className="relative w-full flex-1 min-h-0" style={{ maxHeight: '65vh' }}>
         <div className="absolute inset-0 bg-black/10 blur-3xl rounded-[3rem] -z-10 translate-y-8" />
-        <div className="absolute inset-0 flex p-3 bg-[#4a3b2b] rounded-[2rem] shadow-2xl overflow-hidden border-8" style={{ borderColor: 'var(--book-border-color, #3a2f22)' }}>
+        <div className="absolute inset-0 flex p-3 rounded-[2rem] shadow-2xl overflow-hidden border-8" style={{ backgroundColor: 'var(--book-frame-color, #4a3b2b)', borderColor: 'var(--book-border-color, #3a2f22)' }}>
           {/* Left Page */}
           <div
             className={`flex-1 bg-[#fdfdfb] shadow-[inset_-1px_0_10px_rgba(0,0,0,0.08)] rounded-l-xl relative overflow-hidden transition-all ${

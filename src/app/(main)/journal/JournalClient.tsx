@@ -223,13 +223,13 @@ function ViewerScrapbook({ pages }: { pages: ScrapbookPage[] }) {
       {/* Grid watermark */}
       <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#000 1px,transparent 1px),linear-gradient(90deg,#000 1px,transparent 1px)', backgroundSize: '32px 32px' }} />
       {/* Texts */}
-      {(page.texts || []).map((txt, i) => (
+      {(page.texts || []).filter(Boolean).map((txt, i) => (
         <div key={`${txt.id}-${i}`} className="absolute pointer-events-none select-none" style={{ left: `${txt.x}%`, top: `${txt.y}%`, width: `${txt.width}%`, fontSize: txt.fontSize, color: txt.color, fontWeight: txt.bold ? 700 : 400, fontStyle: txt.italic ? 'italic' : 'normal', textDecoration: txt.underline ? 'underline' : 'none', whiteSpace: 'pre-wrap', wordBreak: 'break-word', transform: `rotate(${txt.rotation ?? 0}deg)` }}>
           {txt.content}
         </div>
       ))}
       {/* Images */}
-      {page.images.map((img, i) => (
+      {(page.images || []).filter(Boolean).map((img, i) => (
         <div key={`${img.id}-${i}`} className="absolute pointer-events-none" style={{ left: `${img.x}%`, top: `${img.y}%`, width: `${img.width}%`, height: `${img.height}%`, transform: `rotate(${img.rotation}deg)` }}>
           <div className="absolute inset-0 bg-white shadow-lg rounded-sm border border-gray-100 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -238,7 +238,7 @@ function ViewerScrapbook({ pages }: { pages: ScrapbookPage[] }) {
           </div>
         </div>
       ))}
-      {page.images.length === 0 && (page.texts || []).length === 0 && (
+      {(page.images || []).filter(Boolean).length === 0 && (page.texts || []).filter(Boolean).length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center text-gray-200 text-sm font-serif italic pointer-events-none">Empty page</div>
       )}
       <div className="absolute bottom-3 text-[10px] text-gray-300 font-serif tracking-widest pointer-events-none" style={{ [pageNum % 2 === 1 ? 'left' : 'right']: '1rem' }}>{pageNum}</div>
@@ -250,7 +250,7 @@ function ViewerScrapbook({ pages }: { pages: ScrapbookPage[] }) {
       {/* Book */}
       <div className="relative w-full flex-1 min-h-0" style={{ maxHeight: '65vh' }}>
         <div className="absolute inset-0 bg-black/10 blur-3xl rounded-[3rem] -z-10 translate-y-8" />
-        <div className="absolute inset-0 flex p-3 bg-[#4a3b2b] rounded-[2rem] shadow-2xl overflow-hidden border-8" style={{ borderColor: 'var(--book-border-color, #3a2f22)' }}>
+        <div className="absolute inset-0 flex p-3 rounded-[2rem] shadow-2xl overflow-hidden border-8" style={{ backgroundColor: 'var(--book-frame-color, #4a3b2b)', borderColor: 'var(--book-border-color, #3a2f22)' }}>
           {/* Left page */}
           <div className="flex-1 shadow-[inset_-1px_0_10px_rgba(0,0,0,0.08)] rounded-l-xl relative overflow-hidden">
             {renderPage(leftPage, idx + 1)}
@@ -359,7 +359,9 @@ export default function JournalClient() {
     }
 
     const result = await response.json()
-    const savedBook = result.book ?? updated
+    const savedBook = result.book
+      ? { ...updated, ...result.book, pages: result.book.pages ?? updated.pages }
+      : updated
     setBooks(prev => prev.map(b => b.id === openBook.id ? savedBook : b))
     setOpenBook(savedBook)
     setEditingCover(false)
