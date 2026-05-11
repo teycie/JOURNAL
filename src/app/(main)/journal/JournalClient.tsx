@@ -284,12 +284,16 @@ function ViewerScrapbook({ pages }: { pages: ScrapbookPage[] }) {
 }
 
 /* ─── Main Component ─────────────────────────────────────────────────────── */
-export default function JournalClient() {
-  const [books, setBooks] = useState<Book[]>([
-    makebook({ title: 'Daily Reflections', coverColor: COVER_COLORS[0], entries: 42, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
-    makebook({ title: 'Travel 2026', coverColor: COVER_COLORS[4], entries: 12, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
-    makebook({ title: 'Gratitude', coverColor: COVER_COLORS[2], entries: 108, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
-  ])
+export default function JournalClient({ initialBooks = [] }: { initialBooks?: Book[] }) {
+  const [books, setBooks] = useState<Book[]>(() => (
+    initialBooks.length > 0
+      ? initialBooks
+      : [
+          makebook({ title: 'Daily Reflections', coverColor: COVER_COLORS[0], entries: 42, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
+          makebook({ title: 'Travel 2026', coverColor: COVER_COLORS[4], entries: 12, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
+          makebook({ title: 'Gratitude', coverColor: COVER_COLORS[2], entries: 108, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
+        ]
+  ))
 
   const [openBook, setOpenBook] = useState<Book | null>(null)
   const [editingCover, setEditingCover] = useState(false)
@@ -304,13 +308,18 @@ export default function JournalClient() {
   const [editFontSize, setEditFontSize] = useState(28)
   const [editTitleColor, setEditTitleColor] = useState<string>('#000000')
   const [editTitleRotation, setEditTitleRotation] = useState(0)
+  const saveTimerRef = useRef<number | null>(null)
 
   const coverFileRef = useRef<HTMLInputElement>(null)
 
   const handleCoverImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setEditCoverImage(URL.createObjectURL(file))
+    const reader = new FileReader()
+    reader.onload = () => {
+      setEditCoverImage(typeof reader.result === 'string' ? reader.result : undefined)
+    }
+    reader.readAsDataURL(file)
   }
 
   const openEditCover = (book: Book) => {
@@ -366,6 +375,23 @@ export default function JournalClient() {
     setOpenBook(savedBook)
     setEditingCover(false)
   }
+
+  useEffect(() => {
+    if (!openBook || editingCover) return
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
+
+    saveTimerRef.current = window.setTimeout(() => {
+      void fetch('/api/books/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ book: openBook }),
+      })
+    }, 600)
+
+    return () => {
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
+    }
+  }, [openBook, editingCover])
 
   const createNewBook = () => {
     const nb = makebook()
