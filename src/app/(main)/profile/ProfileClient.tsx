@@ -32,10 +32,7 @@ const THEMES = [
   },
 ]
 
-const SYSTEM_MODES = [
-  { id: 'light', label: 'Light', icon: '☀️' },
-  { id: 'dark', label: 'Dark', icon: '🌙' },
-]
+
 
 export default function ProfileClient({ userEmail }: { userEmail: string }) {
   const [section, setSection] = useState<Section>('account')
@@ -47,29 +44,20 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
 
   // Appearance
   const [selectedTheme, setSelectedTheme] = useState('default')
-  const [systemMode, setSystemMode] = useState('light')
+
   const [themeApplied, setThemeApplied] = useState(false)
 
-  // Load theme on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('bloomly-theme') || 'default'
-    const savedMode = localStorage.getItem('bloomly-mode') || 'light'
     setSelectedTheme(savedTheme)
-    setSystemMode(savedMode)
 
-    // Apply them immediately
     const theme = THEMES.find(t => t.id === savedTheme)
     if (theme) {
       const root = document.documentElement
       Object.entries(theme.vars).forEach(([key, val]) => root.style.setProperty(key, val))
       root.style.setProperty('--book-border-color', theme.colors[0])
       root.style.setProperty('--book-frame-color', theme.colors[0])
-
-      if (savedMode === 'dark') {
-        root.classList.add('dark')
-      } else {
-        root.classList.remove('dark')
-      }
+      root.classList.remove('dark')
     }
   }, [])
 
@@ -239,35 +227,6 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
           {section === 'appearance' && (
             <div className="glass-panel p-6 space-y-8">
               <h3 className="text-xl font-serif font-semibold">Appearance</h3>
-
-              {/* System Mode */}
-              <div>
-                <p className="text-sm font-semibold text-gray-600 mb-3">Mode</p>
-                <div className="flex gap-3">
-                  {SYSTEM_MODES.map(m => (
-                    <button
-                      key={m.id}
-                      onClick={() => {
-                        setSystemMode(m.id)
-                        const root = document.documentElement
-                        if (m.id === 'dark') {
-                          root.classList.add('dark')
-                        } else {
-                          root.classList.remove('dark')
-                        }
-                        localStorage.setItem('bloomly-mode', m.id)
-                      }}
-                      className={`flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl border-2 transition-all font-medium text-sm ${systemMode === m.id
-                        ? 'border-primary-400 bg-primary-50 text-primary-700'
-                        : 'border-gray-200 bg-white/60 text-gray-600 hover:border-primary-200'
-                        }`}
-                    >
-                      <span className="text-2xl">{m.icon}</span>
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               {/* Color Theme */}
               <div>
