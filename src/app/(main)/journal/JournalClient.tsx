@@ -14,7 +14,7 @@ type Book = {
   titleFontSize: number                        // px
   titleColor?: string                          // hex color
   titleRotation?: number                       // degrees 0-360
-  entries: number
+  entries?: number // Deprecated, using pages.length
   pages: ScrapbookPage[]
 }
 
@@ -219,7 +219,7 @@ function ViewerScrapbook({ pages }: { pages: ScrapbookPage[] }) {
   const rightPage = normalized[idx + 1] ?? { images: [], texts: [] }
 
   const renderPage = (page: ScrapbookPage, pageNum: number) => (
-    <div className="flex-1 bg-[#fdfdfb] relative overflow-hidden">
+    <div className="absolute inset-0 bg-[#fdfdfb] overflow-hidden p-4">
       {/* Grid watermark */}
       <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#000 1px,transparent 1px),linear-gradient(90deg,#000 1px,transparent 1px)', backgroundSize: '32px 32px' }} />
       {/* Texts */}
@@ -272,7 +272,7 @@ function ViewerScrapbook({ pages }: { pages: ScrapbookPage[] }) {
           <ChevronLeft size={20} />
         </button>
         <span className="text-sm font-medium text-gray-500 min-w-[110px] text-center">
-          Spread {currentSpread} / {totalSpreads}
+          Pages {idx + 1}-{idx + 2} of {normalized.length}
         </span>
         <button onClick={next} disabled={idx + 2 >= normalized.length} className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-30 transition-colors shadow-sm">
           <ChevronRight size={20} />
@@ -289,9 +289,9 @@ export default function JournalClient({ initialBooks = [] }: { initialBooks?: Bo
     initialBooks.length > 0
       ? initialBooks
       : [
-          makebook({ title: 'Daily Reflections', coverColor: COVER_COLORS[0], entries: 42, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
-          makebook({ title: 'Travel 2026', coverColor: COVER_COLORS[4], entries: 12, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
-          makebook({ title: 'Gratitude', coverColor: COVER_COLORS[2], entries: 108, pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
+          makebook({ title: 'Daily Reflections', coverColor: COVER_COLORS[0], pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
+          makebook({ title: 'Travel 2026', coverColor: COVER_COLORS[4], pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
+          makebook({ title: 'Gratitude', coverColor: COVER_COLORS[2], pages: [{ images: [], texts: [] }, { images: [], texts: [] }] }),
         ]
   ))
 
@@ -707,7 +707,7 @@ export default function JournalClient({ initialBooks = [] }: { initialBooks?: Bo
 
             <div className="px-2">
               <h4 className="font-medium text-foreground">{book.title}</h4>
-              <p className="text-sm text-gray-500">{book.entries} entries</p>
+              <p className="text-sm text-gray-500">{book.pages.length} pages</p>
             </div>
           </div>
         ))}

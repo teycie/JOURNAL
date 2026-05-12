@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { User, Palette, Bell, Shield, Camera, Eye, EyeOff, Check } from 'lucide-react'
 
 type Section = 'account' | 'appearance' | 'notifications' | 'privacy'
@@ -35,7 +35,6 @@ const THEMES = [
 const SYSTEM_MODES = [
   { id: 'light', label: 'Light', icon: '☀️' },
   { id: 'dark', label: 'Dark', icon: '🌙' },
-  { id: 'system', label: 'System', icon: '💻' },
 ]
 
 export default function ProfileClient({ userEmail }: { userEmail: string }) {
@@ -48,24 +47,45 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
 
   // Appearance
   const [selectedTheme, setSelectedTheme] = useState('default')
-  const [systemMode, setSystemMode] = useState('system')
+  const [systemMode, setSystemMode] = useState('light')
   const [themeApplied, setThemeApplied] = useState(false)
+
+  // Load theme on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('bloomly-theme') || 'default'
+    const savedMode = localStorage.getItem('bloomly-mode') || 'light'
+    setSelectedTheme(savedTheme)
+    setSystemMode(savedMode)
+
+    // Apply them immediately
+    const theme = THEMES.find(t => t.id === savedTheme)
+    if (theme) {
+      const root = document.documentElement
+      Object.entries(theme.vars).forEach(([key, val]) => root.style.setProperty(key, val))
+      root.style.setProperty('--book-border-color', theme.colors[0])
+      root.style.setProperty('--book-frame-color', theme.colors[0])
+
+      if (savedMode === 'dark') {
+        root.classList.add('dark')
+      } else {
+        root.classList.remove('dark')
+      }
+    }
+  }, [])
 
   const handleApplyTheme = () => {
     const theme = THEMES.find(t => t.id === selectedTheme)
     if (!theme) return
     const root = document.documentElement
+
+    // Save to localStorage
+    localStorage.setItem('bloomly-theme', selectedTheme)
+    
     Object.entries(theme.vars).forEach(([key, val]) => root.style.setProperty(key, val))
     root.style.setProperty('--book-border-color', theme.colors[0])
     root.style.setProperty('--book-frame-color', theme.colors[0])
-    // Handle dark/light mode
-    if (systemMode === 'dark') {
-      root.classList.add('dark')
-    } else if (systemMode === 'light') {
-      root.classList.remove('dark')
-    } else {
-      root.classList.remove('dark')
-    }
+
+    // Mode is now handled instantly in the buttons
     setThemeApplied(true)
     setTimeout(() => setThemeApplied(false), 2500)
   }
@@ -227,7 +247,16 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
                   {SYSTEM_MODES.map(m => (
                     <button
                       key={m.id}
-                      onClick={() => setSystemMode(m.id)}
+                      onClick={() => {
+                        setSystemMode(m.id)
+                        const root = document.documentElement
+                        if (m.id === 'dark') {
+                          root.classList.add('dark')
+                        } else {
+                          root.classList.remove('dark')
+                        }
+                        localStorage.setItem('bloomly-mode', m.id)
+                      }}
                       className={`flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl border-2 transition-all font-medium text-sm ${systemMode === m.id
                         ? 'border-primary-400 bg-primary-50 text-primary-700'
                         : 'border-gray-200 bg-white/60 text-gray-600 hover:border-primary-200'

@@ -70,6 +70,7 @@ export async function addTodo(
     user_id: userId,
     entry_date: date,
     title,
+    task: title,
     completed: false,
     subtasks: JSON.stringify(subtasks || []),
   }
@@ -101,7 +102,7 @@ export async function addTodo(
     if (entry) {
       const { data: legacyTodo, error: legacyError } = await supabase
         .from('todos')
-        .insert({ entry_id: entry.id, title, task: title, completed: false })
+        .insert({ entry_id: entry.id, title, task: title, completed: false, user_id: userId, entry_date: date })
         .select()
         .single()
 
@@ -144,7 +145,7 @@ export async function updateTodoTitle(id: string, title: string) {
   
   const { error } = await supabase
     .from('todos')
-    .update({ title })
+    .update({ title, task: title })
     .eq('id', id)
 
   if (error) {

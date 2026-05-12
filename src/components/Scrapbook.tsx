@@ -179,7 +179,7 @@ function TextItem({
   const onDragMove = useDragMove(text, pageRef, onUpdate)
 
   const toolbar = isSelected && (
-    <div className="absolute -top-12 left-0 flex flex-wrap items-center gap-1 bg-white border border-gray-200 rounded-lg shadow-lg px-2 py-1 z-30" onClick={e => e.stopPropagation()}>
+    <div className="absolute -top-16 left-0 flex flex-wrap items-center gap-1 bg-white border border-gray-200 rounded-lg shadow-xl px-2 py-1.5 z-50 min-w-[280px]" onClick={e => e.stopPropagation()}>
       <button onClick={() => onUpdate({ bold: !text.bold })} className={`p-1 rounded transition-colors ${text.bold ? 'bg-primary-100 text-primary-700' : 'hover:bg-gray-100'}`}><Bold size={12} /></button>
       <button onClick={() => onUpdate({ italic: !text.italic })} className={`p-1 rounded transition-colors ${text.italic ? 'bg-primary-100 text-primary-700' : 'hover:bg-gray-100'}`}><Italic size={12} /></button>
       <button onClick={() => onUpdate({ underline: !text.underline })} className={`p-1 rounded transition-colors ${text.underline ? 'bg-primary-100 text-primary-700' : 'hover:bg-gray-100'}`}><Underline size={12} /></button>
@@ -283,7 +283,7 @@ function PageCanvas({
     const rect = pageRef.current!.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
-    onClickEmpty(pageIndex, x, y)
+    // onClickEmpty(pageIndex, x, y) // Disabled auto-pop as requested
     onSelectId(null)
   }
 
@@ -310,7 +310,7 @@ function PageCanvas({
 
       {safeImages.map((img, i) => (
         <ImageItem
-          key={img.id || `img-${pageIndex}-${i}`}
+          key={`${img.id}-${pageIndex}-${i}`}
           image={img}
           isSelected={selectedId === img.id}
           pageRef={pageRef}
@@ -358,13 +358,28 @@ interface ScrapbookProps {
 }
 
 export default function Scrapbook({ pages: initialPages, onUpdatePages }: ScrapbookProps) {
-  const normalize = (ps: ScrapbookPage[]) =>
-    ps.length > 0
-      ? ps.map(p => ({
-          images: p.images || [],
-          texts: (p.texts || []).map(text => ({ ...text, rotation: text.rotation ?? 0 })),
-        }))
-      : [{ images: [], texts: [] }, { images: [], texts: [] }]
+  const normalize = (ps: ScrapbookPage[]) => {
+    const raw = ps.length > 0 ? ps : [{ images: [], texts: [] }, { images: [], texts: [] }]
+    // Trim trailing empty pages if there are many (more than 4)
+    let processed = [...raw]
+    if (processed.length > 4) {
+      while (processed.length > 2) {
+        const last = processed[processed.length - 1]
+        const secondLast = processed[processed.length - 2]
+        const isEmpty = (p: ScrapbookPage) => (p.images?.length === 0) && (!p.texts || p.texts.length === 0)
+        if (isEmpty(last) && isEmpty(secondLast)) {
+          processed.pop()
+          processed.pop()
+        } else {
+          break
+        }
+      }
+    }
+    return processed.map(p => ({
+      images: p.images || [],
+      texts: (p.texts || []).map(text => ({ ...text, rotation: text.rotation ?? 0 })),
+    }))
+  }
 
   const [pages, setPages] = useState<ScrapbookPage[]>(() => normalize(initialPages))
   const [currentPageIndex, setCurrentPageIndex] = useState(0)
@@ -388,44 +403,40 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
   const rightPage = pages[currentPageIndex + 1] ?? { images: [], texts: [] }
 
   /* mutations */
-  const setPagesMut = (fn: (p: ScrapbookPage[]) => ScrapbookPage[]) => setPages(prev => fn([...prev]))
-
   const updateImage = (pi: number, id: string, u: Partial<ScrapbookImage>) =>
-    setPagesMut(ps => { ps[pi].images = ps[pi].images.map(img => img.id === id ? { ...img, ...u } : img); return ps })
+    setPages(prev => prev.map((p, i) => i === pi ? { ...p, images: p.images.map(img => img.id === id ? { ...img, ...u } : img) } : p))
 
   const deleteImage = (pi: number, id: string) =>
-    setPagesMut(ps => { ps[pi].images = ps[pi].images.filter(img => img.id !== id); return ps })
+    setPages(prev => prev.map((p, i) => i === pi ? { ...p, images: p.images.filter(img => img.id !== id) } : p))
 
   const updateText = (pi: number, id: string, u: Partial<ScrapbookText>) =>
-    setPagesMut(ps => { ps[pi].texts = (ps[pi].texts || []).map(t => t.id === id ? { ...t, ...u } : t); return ps })
+    setPages(prev => prev.map((p, i) => i === pi ? { ...p, texts: (p.texts || []).map(t => t.id === id ? { ...t, ...u } : t) } : p))
 
   const deleteText = (pi: number, id: string) =>
-    setPagesMut(ps => { ps[pi].texts = (ps[pi].texts || []).filter(t => t.id !== id); return ps })
+    setPages(prev => prev.map((p, i) => i === pi ? { ...p, texts: (p.texts || []).filter(t => t.id !== id) } : p))
 
   const handleAddImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
     const url = URL.createObjectURL(file)
     const img: ScrapbookImage = { id: genId(), url, x: 15, y: 15, width: 40, height: 40, rotation: (Math.random() - 0.5) * 8, zIndex: Date.now() }
     const targetPageIdx = activeSide === 'right' ? currentPageIndex + 1 : currentPageIndex
-    setPagesMut(ps => { ps[targetPageIdx].images.push(img); return ps })
+    
+    setPages(prev => prev.map((p, i) => i === targetPageIdx ? { ...p, images: [...p.images, img] } : p))
     setSelectedId(img.id)
     e.target.value = ''
   }
 
   const handleClickEmpty = (pi: number, x: number, y: number) => {
     const txt: ScrapbookText = { id: genId(), content: '', x, y, width: 40, fontSize: 14, color: '#2D3748', bold: false, italic: false, underline: false, rotation: 0, zIndex: Date.now() }
-    setPagesMut(ps => { ps[pi].texts = [...(ps[pi].texts || []), txt]; return ps })
+    setPages(prev => prev.map((p, i) => i === pi ? { ...p, texts: [...(p.texts || []), txt] } : p))
     setSelectedId(txt.id)
   }
 
   const nextPage = () => {
     if (currentPageIndex + 2 < pages.length) {
       setCurrentPageIndex(i => i + 2)
-    } else {
-      setPagesMut(ps => [...ps, { images: [], texts: [] }, { images: [], texts: [] }])
-      setCurrentPageIndex(i => i + 2)
+      setSelectedId(null)
     }
-    setSelectedId(null)
   }
 
   const prevPage = () => {
@@ -433,17 +444,17 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
   }
 
   const addPageSpread = () => {
-    setPagesMut(ps => [...ps, { images: [], texts: [] }, { images: [], texts: [] }])
+    setPages(prev => [...prev, { images: [], texts: [] }, { images: [], texts: [] }])
     setCurrentPageIndex(pages.length % 2 === 0 ? pages.length : pages.length - 1)
     setSelectedId(null)
   }
 
   const deleteCurrentSpread = () => {
     if (pages.length <= 2) return
-    setPagesMut(ps => {
-      const copy = [...ps]
+    setPages(prev => {
+      const copy = [...prev]
       copy.splice(currentPageIndex, 2)
-      return copy.length < 2 ? [...copy, { images: [], texts: [] }, { images: [], texts: [] }].slice(0, 2) : copy
+      return copy.length < 2 ? [{ images: [], texts: [] }, { images: [], texts: [] }] : copy
     })
     setCurrentPageIndex(i => Math.max(0, i - 2))
     setDeleteConfirm(false)
@@ -468,7 +479,7 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
           </button>
           <button
             onClick={() => handleClickEmpty(activeSide === 'right' ? currentPageIndex + 1 : currentPageIndex, 20, 20)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-primary-200 text-primary-700 rounded-xl text-sm font-semibold hover:bg-primary-50 transition-colors shadow-sm"
           >
             <Type size={16} /> Add Text
           </button>
@@ -498,8 +509,8 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
           <button onClick={prevPage} disabled={currentPageIndex === 0} className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-30 transition-colors">
             <ChevronLeft size={18} />
           </button>
-          <span className="text-sm font-medium text-gray-500 min-w-[90px] text-center">
-            Spread {currentSpread} / {totalSpreads}
+          <span className="text-sm font-medium text-gray-500 min-w-[120px] text-center">
+            Pages {currentPageIndex + 1}-{currentPageIndex + 2} of {pages.length}
           </span>
           <button onClick={nextPage} className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
             <ChevronRight size={18} />
