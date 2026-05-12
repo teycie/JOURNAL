@@ -78,6 +78,7 @@ export default function DashboardClient({
 
   const [moodMap, setMoodMap] = useState<MoodMap>(initialMoodMap)
   const [calendarActiveStart, setCalendarActiveStart] = useState<Date>(() => new Date(y, m - 1, 1))
+  const [showAllMoods, setShowAllMoods] = useState(false)
 
   // When the server re-renders with new initialEntry/initialTodos (after date
   // change via router.push + router.refresh), sync client state to new props.
@@ -323,20 +324,40 @@ export default function DashboardClient({
         {/* Mood */}
         <div className="mb-4">
           <p className="text-sm font-medium text-gray-500 mb-2">How was your day?</p>
-          <div className="flex flex-wrap gap-2 bg-white/50 p-2 rounded-2xl border border-gray-100 shadow-sm">
-            {MOODS.map(mo => (
+          <div className="grid grid-cols-7 gap-2 bg-white/50 p-2 rounded-2xl border border-gray-100 shadow-sm transition-all duration-300">
+            {(showAllMoods ? MOODS : MOODS.slice(0, 13)).map(mo => (
               <button
                 key={mo.emoji}
                 onClick={() => setMood(mo.emoji)}
                 title={mo.label}
-                className={`relative flex flex-col items-center gap-0.5 p-2 rounded-xl transition-all duration-200 group ${mood === mo.emoji ? 'bg-primary-100 scale-110 shadow-sm' : 'hover:bg-gray-50 hover:scale-105 opacity-60 hover:opacity-100'}`}
+                className={`relative flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 group ${mood === mo.emoji ? 'bg-primary-100 scale-110 shadow-sm opacity-100' : 'hover:bg-gray-50 hover:scale-105 opacity-60 hover:opacity-100'}`}
               >
-                <span style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', fontSize: '1.35rem' }}>
+                <span style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', fontSize: '1.25rem' }}>
                   {mo.emoji}
                 </span>
-
               </button>
             ))}
+            
+            {/* "Others" toggle button */}
+            {!showAllMoods && (
+              <button
+                onClick={() => setShowAllMoods(true)}
+                className="flex items-center justify-center p-2 rounded-xl hover:bg-gray-50 transition-all opacity-60 hover:opacity-100 text-gray-400 font-bold"
+                title="Show more moods"
+              >
+                <span className="text-lg">...</span>
+              </button>
+            )}
+
+            {showAllMoods && (
+              <button
+                onClick={() => setShowAllMoods(false)}
+                className="flex items-center justify-center p-2 rounded-xl hover:bg-gray-50 transition-all opacity-60 hover:opacity-100 text-gray-400 font-bold"
+                title="Show less"
+              >
+                <ChevronUp size={18} />
+              </button>
+            )}
           </div>
           {selectedMoodInfo && (
             <p className="text-xs text-primary-500 mt-2 font-medium">
