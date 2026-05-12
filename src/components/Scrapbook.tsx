@@ -574,5 +574,6 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
           </div>
       </div>
     </div>
+  </div>
   )
 }
