@@ -13,18 +13,30 @@ type Entry = { id: string; title?: string; content: string; mood: string; entry_
 type MoodMap = { [date: string]: string }
 
 const MOODS = [
+  { emoji: '😊', label: 'Happy' },
   { emoji: '🥰', label: 'Loved' },
-  { emoji: '😄', label: 'Happy' },
-  { emoji: '😊', label: 'Good' },
+  { emoji: '🥳', label: 'Excited' },
+  { emoji: '🤩', label: 'Star-struck' },
   { emoji: '😌', label: 'Calm' },
-  { emoji: '🙂', label: 'Okay' },
+  { emoji: '😇', label: 'Blessed' },
+  { emoji: '🤔', label: 'Thinking' },
+  { emoji: '🧐', label: 'Analyzing' },
   { emoji: '😐', label: 'Meh' },
   { emoji: '😔', label: 'Sad' },
-  { emoji: '😤', label: 'Frustrated' },
+  { emoji: '😤', label: 'Angry' },
+  { emoji: '🤯', label: 'Mind-blown' },
+  { emoji: '😴', label: 'Sleepy' },
+  { emoji: '🥱', label: 'Tired' },
   { emoji: '😫', label: 'Exhausted' },
   { emoji: '😰', label: 'Anxious' },
   { emoji: '🤒', label: 'Sick' },
-  { emoji: '🥳', label: 'Excited' },
+  { emoji: '🥴', label: 'Woozy' },
+  { emoji: '🥵', label: 'Burned out' },
+  { emoji: '🥶', label: 'Cold' },
+  { emoji: '🤑', label: 'Prosperous' },
+  { emoji: '🤡', label: 'Funny' },
+  { emoji: '🤫', label: 'Quiet' },
+  { emoji: '🫠', label: 'Melting' },
 ]
 
 function parseTodo(raw: any): Todo {
@@ -311,17 +323,18 @@ export default function DashboardClient({
         {/* Mood */}
         <div className="mb-4">
           <p className="text-sm font-medium text-gray-500 mb-2">How was your day?</p>
-          <div className="flex flex-wrap gap-1 bg-white/40 p-1.5 rounded-xl border border-gray-100/50">
+          <div className="flex flex-wrap gap-2 bg-white/50 p-2 rounded-2xl border border-gray-100 shadow-sm">
             {MOODS.map(mo => (
               <button
                 key={mo.emoji}
                 onClick={() => setMood(mo.emoji)}
                 title={mo.label}
-                className={`relative flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${mood === mo.emoji ? 'bg-primary-100 scale-105' : 'hover:bg-gray-50 opacity-50 hover:opacity-100'}`}
+                className={`relative flex flex-col items-center gap-0.5 p-2 rounded-xl transition-all duration-200 group ${mood === mo.emoji ? 'bg-primary-100 scale-110 shadow-sm' : 'hover:bg-gray-50 hover:scale-105 opacity-60 hover:opacity-100'}`}
               >
-                <span style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', fontSize: '1.1rem' }}>
+                <span style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', fontSize: '1.35rem' }}>
                   {mo.emoji}
                 </span>
+
               </button>
             ))}
           </div>
