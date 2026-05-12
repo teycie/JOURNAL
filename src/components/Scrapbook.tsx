@@ -187,7 +187,7 @@ function TextItem({
       <input type="color" value={text.color} onChange={e => onUpdate({ color: e.target.value })} className="w-5 h-5 rounded cursor-pointer border-0 p-0" title="Text color" />
       <div className="w-px h-4 bg-gray-200" />
       <select value={text.fontSize} onChange={e => onUpdate({ fontSize: Number(e.target.value) })} className="text-xs border-0 outline-none bg-transparent" onClick={e => e.stopPropagation()}>
-        {[10,12,14,16,18,20,24,28,32,40].map(s => <option key={s} value={s}>{s}px</option>)}
+        {[10, 12, 14, 16, 18, 20, 24, 28, 32, 40].map(s => <option key={s} value={s}>{s}px</option>)}
       </select>
       <div className="w-px h-4 bg-gray-200" />
       <div className="flex items-center gap-0.5">
@@ -420,7 +420,7 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
     const url = URL.createObjectURL(file)
     const img: ScrapbookImage = { id: genId(), url, x: 15, y: 15, width: 40, height: 40, rotation: (Math.random() - 0.5) * 8, zIndex: Date.now() }
     const targetPageIdx = activeSide === 'right' ? currentPageIndex + 1 : currentPageIndex
-    
+
     setPages(prev => prev.map((p, i) => i === targetPageIdx ? { ...p, images: [...p.images, img] } : p))
     setSelectedId(img.id)
     e.target.value = ''
@@ -524,9 +524,8 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
         <div className="absolute inset-0 flex p-3 rounded-[2rem] shadow-2xl overflow-hidden border-8" style={{ backgroundColor: 'var(--book-frame-color, #4a3b2b)', borderColor: 'var(--book-border-color, #3a2f22)' }}>
           {/* Left Page */}
           <div
-            className={`flex-1 bg-[#fdfdfb] shadow-[inset_-1px_0_10px_rgba(0,0,0,0.08)] rounded-l-xl relative overflow-hidden transition-all ${
-              activeSide === 'left' ? 'ring-2 ring-primary-400 ring-inset' : ''
-            }`}
+            className={`flex-1 bg-[#fdfdfb] shadow-[inset_-1px_0_10px_rgba(0,0,0,0.08)] rounded-l-xl relative overflow-hidden transition-all ${activeSide === 'left' ? 'ring-2 ring-primary-400 ring-inset' : ''
+              }`}
             onClick={() => setActiveSide('left')}
           >
             <PageCanvas
@@ -553,9 +552,8 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
 
           {/* Right Page */}
           <div
-            className={`flex-1 bg-[#fdfdfb] shadow-[inset_1px_0_10px_rgba(0,0,0,0.08)] rounded-r-xl relative overflow-hidden transition-all ${
-              activeSide === 'right' ? 'ring-2 ring-primary-400 ring-inset' : ''
-            }`}
+            className={`flex-1 bg-[#fdfdfb] shadow-[inset_1px_0_10px_rgba(0,0,0,0.08)] rounded-r-xl relative overflow-hidden transition-all ${activeSide === 'right' ? 'ring-2 ring-primary-400 ring-inset' : ''
+              }`}
             onClick={() => setActiveSide('right')}
           >
             <PageCanvas
@@ -574,10 +572,7 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
               <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-primary-500/80 text-white text-[9px] font-semibold px-2 py-0.5 rounded-full pointer-events-none backdrop-blur-sm">Active</div>
             )}
           </div>
-        </div>
       </div>
-
-      <p className="mt-3 text-xs text-gray-400 text-center">Click page to select it · drag to move · corner to resize · use ↺↻ to rotate images · rotate text with slider</p>
     </div>
   )
 }
