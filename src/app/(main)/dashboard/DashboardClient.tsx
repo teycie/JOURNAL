@@ -199,7 +199,18 @@ export default function DashboardClient({
   const selectedMoodInfo = MOODS.find(mo => mo.emoji === mood)
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-full pb-8">
+    <div className="flex flex-col h-full">
+      <header className="mb-8">
+        <div className="flex items-center gap-4 mb-1">
+          <h1 className="text-3xl font-serif font-bold text-foreground">Good day.</h1>
+          <span className="text-xs font-medium text-primary-600 bg-primary-50 px-3 py-1.5 rounded-full shadow-sm border border-primary-100">
+            {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </span>
+        </div>
+        <p className="text-gray-500">Let&apos;s reflect on your moments.</p>
+      </header>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-full pb-8">
 
       {/* Left: Calendar + Todos */}
       <div className="lg:col-span-7 flex flex-col gap-6">
@@ -229,7 +240,6 @@ export default function DashboardClient({
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-serif font-semibold text-xl text-foreground">To-do List</h3>
-              <p className="text-xs text-gray-400 mt-0.5">{selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
             </div>
             <button
               onClick={handleAddEmptyTodo}
@@ -300,13 +310,10 @@ export default function DashboardClient({
           </div>
         )}
 
-        <div className="flex items-center gap-3 mb-2">
+        <div className="flex items-center gap-3 mb-4">
           <BookOpen className="w-5 h-5 text-primary-500 shrink-0" />
           <h2 className="text-xl font-serif font-semibold text-foreground">Daily Diary</h2>
         </div>
-        <p className="text-gray-400 text-xs mb-4">
-          {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-        </p>
 
         {/* Mood */}
         <div className="mb-4">
@@ -371,6 +378,7 @@ export default function DashboardClient({
         </div>
       </div>
 
+      </div>
     </div>
   )
 }

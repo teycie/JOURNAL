@@ -35,11 +35,6 @@ export default async function DashboardPage({
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <header className="mb-8">
-        <h1 className="text-3xl font-serif font-bold text-foreground">Good day.</h1>
-        <p className="text-gray-500 mt-1">Let&apos;s reflect on your moments.</p>
-      </header>
-      
       <DashboardClient 
         initialEntry={entry ?? null} 
         initialTodos={todos} 
