@@ -246,47 +246,47 @@ export default function DashboardClient({
                 <p className="text-gray-400 text-center text-sm">No tasks for this day. Add one above!</p>
               </div>
             ) : (
-            todos.map(todo => {
-              const isEditing = editingTodoId === todo.id
-              return (
-                <div key={todo.id} className="rounded-xl border border-gray-100 bg-white/60 hover:bg-white/90 transition-colors group shadow-sm overflow-hidden">
-                  <div className="flex items-center gap-3 p-3">
-                    <button
-                      onClick={() => !isEditing && toggleTodo(todo.id, todo.completed)}
-                      className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${todo.completed ? 'bg-primary-500 border-primary-500 text-white' : 'border-gray-300 hover:border-primary-400'}`}
-                    >
-                      {todo.completed && <Check size={11} />}
-                    </button>
-
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        autoFocus
-                        value={editingTodoTitle}
-                        onChange={e => setEditingTodoTitle(e.target.value)}
-                        onBlur={() => handleSaveEdit(todo.id, editingTodoTitle)}
-                        onKeyDown={e => handleKeyDown(e, todo.id)}
-                        className="flex-1 bg-transparent border-b border-primary-400 focus:outline-none text-sm font-semibold text-foreground px-1"
-                      />
-                    ) : (
-                      <span
-                        className={`flex-1 font-semibold text-sm cursor-text transition-all ${todo.completed ? 'text-gray-400 line-through' : 'text-foreground'}`}
-                        onClick={() => { setEditingTodoId(todo.id); setEditingTodoTitle(todo.title) }}
+              todos.map(todo => {
+                const isEditing = editingTodoId === todo.id
+                return (
+                  <div key={todo.id} className="rounded-xl border border-gray-100 bg-white/60 hover:bg-white/90 transition-colors group shadow-sm overflow-hidden">
+                    <div className="flex items-center gap-3 p-3">
+                      <button
+                        onClick={() => !isEditing && toggleTodo(todo.id, todo.completed)}
+                        className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${todo.completed ? 'bg-primary-500 border-primary-500 text-white' : 'border-gray-300 hover:border-primary-400'}`}
                       >
-                        {todo.title || 'Untitled Task'}
-                      </span>
-                    )}
+                        {todo.completed && <Check size={11} />}
+                      </button>
 
-                    <button
-                      onClick={() => deleteTodo(todo.id)}
-                      className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-1"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          value={editingTodoTitle}
+                          onChange={e => setEditingTodoTitle(e.target.value)}
+                          onBlur={() => handleSaveEdit(todo.id, editingTodoTitle)}
+                          onKeyDown={e => handleKeyDown(e, todo.id)}
+                          className="flex-1 bg-transparent border-b border-primary-400 focus:outline-none text-sm font-semibold text-foreground px-1"
+                        />
+                      ) : (
+                        <span
+                          className={`flex-1 font-semibold text-sm cursor-text transition-all ${todo.completed ? 'text-gray-400 line-through' : 'text-foreground'}`}
+                          onClick={() => { setEditingTodoId(todo.id); setEditingTodoTitle(todo.title) }}
+                        >
+                          {todo.title || 'Untitled Task'}
+                        </span>
+                      )}
+
+                      <button
+                        onClick={() => deleteTodo(todo.id)}
+                        className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-1"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )
-            })
+                )
+              })
             )}
           </div>
         </div>
@@ -311,19 +311,16 @@ export default function DashboardClient({
         {/* Mood */}
         <div className="mb-4">
           <p className="text-sm font-medium text-gray-500 mb-2">How was your day?</p>
-          <div className="flex flex-wrap gap-2 bg-white/50 p-2 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex flex-wrap gap-1 bg-white/40 p-1.5 rounded-xl border border-gray-100/50">
             {MOODS.map(mo => (
               <button
                 key={mo.emoji}
                 onClick={() => setMood(mo.emoji)}
                 title={mo.label}
-                className={`relative flex flex-col items-center gap-0.5 p-2 rounded-xl transition-all duration-200 group ${mood === mo.emoji ? 'bg-primary-100 scale-110 shadow-sm' : 'hover:bg-gray-50 hover:scale-105 opacity-60 hover:opacity-100'}`}
+                className={`relative flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${mood === mo.emoji ? 'bg-primary-100 scale-105' : 'hover:bg-gray-50 opacity-50 hover:opacity-100'}`}
               >
-                <span style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', fontSize: '1.35rem' }}>
+                <span style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', fontSize: '1.1rem' }}>
                   {mo.emoji}
-                </span>
-                <span className={`text-[9px] font-medium transition-all ${mood === mo.emoji ? 'text-primary-600 opacity-100' : 'text-gray-400 opacity-0 group-hover:opacity-100'}`}>
-                  {mo.label}
                 </span>
               </button>
             ))}
@@ -340,7 +337,7 @@ export default function DashboardClient({
           type="text"
           value={diaryTitle}
           onChange={e => setDiaryTitle(e.target.value)}
-          placeholder="Give today a title..."
+          placeholder="Today's Title"
           className="w-full px-0 py-2 mb-1 bg-transparent border-b-2 border-gray-200 focus:border-primary-400 focus:outline-none text-lg font-serif font-semibold text-foreground placeholder:text-gray-300 transition-colors"
         />
 
