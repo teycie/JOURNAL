@@ -8,27 +8,27 @@ type Section = 'account' | 'appearance' | 'notifications' | 'privacy'
 const THEMES = [
   {
     id: 'default', label: 'Bloomly', colors: ['#8B5CF6', '#F43F5E', '#10B981'], desc: 'Soft purple & rose',
-    vars: { '--color-primary-50': '#F3F0FF', '--color-primary-100': '#EBE5FF', '--color-primary-500': '#8B5CF6', '--color-primary-600': '#7C3AED' }
+    vars: { '--color-primary-50': '#F3F0FF', '--color-primary-100': '#EBE5FF', '--color-primary-500': '#8B5CF6', '--color-primary-600': '#7C3AED', '--color-secondary-500': '#F43F5E', '--color-accent-500': '#10B981' }
   },
   {
     id: 'ocean', label: 'Ocean', colors: ['#0EA5E9', '#06B6D4', '#3B82F6'], desc: 'Cool blues & cyan',
-    vars: { '--color-primary-50': '#F0F9FF', '--color-primary-100': '#E0F2FE', '--color-primary-500': '#0EA5E9', '--color-primary-600': '#0284C7' }
+    vars: { '--color-primary-50': '#F0F9FF', '--color-primary-100': '#E0F2FE', '--color-primary-500': '#0EA5E9', '--color-primary-600': '#0284C7', '--color-secondary-500': '#06B6D4', '--color-accent-500': '#3B82F6' }
   },
   {
     id: 'forest', label: 'Forest', colors: ['#16A34A', '#65A30D', '#0D9488'], desc: 'Earthy greens',
-    vars: { '--color-primary-50': '#F0FDF4', '--color-primary-100': '#DCFCE7', '--color-primary-500': '#16A34A', '--color-primary-600': '#15803D' }
+    vars: { '--color-primary-50': '#F0FDF4', '--color-primary-100': '#DCFCE7', '--color-primary-500': '#16A34A', '--color-primary-600': '#15803D', '--color-secondary-500': '#65A30D', '--color-accent-500': '#0D9488' }
   },
   {
     id: 'sunset', label: 'Sunset', colors: ['#F97316', '#EF4444', '#FBBF24'], desc: 'Warm oranges & red',
-    vars: { '--color-primary-50': '#FFF7ED', '--color-primary-100': '#FFEDD5', '--color-primary-500': '#F97316', '--color-primary-600': '#EA580C' }
+    vars: { '--color-primary-50': '#FFF7ED', '--color-primary-100': '#FFEDD5', '--color-primary-500': '#F97316', '--color-primary-600': '#EA580C', '--color-secondary-500': '#EF4444', '--color-accent-500': '#FBBF24' }
   },
   {
     id: 'cherry', label: 'Cherry', colors: ['#EC4899', '#F43F5E', '#A855F7'], desc: 'Pinks & fuchsia',
-    vars: { '--color-primary-50': '#FDF2F8', '--color-primary-100': '#FCE7F3', '--color-primary-500': '#EC4899', '--color-primary-600': '#DB2777' }
+    vars: { '--color-primary-50': '#FDF2F8', '--color-primary-100': '#FCE7F3', '--color-primary-500': '#EC4899', '--color-primary-600': '#DB2777', '--color-secondary-500': '#F43F5E', '--color-accent-500': '#A855F7' }
   },
   {
     id: 'midnight', label: 'Midnight', colors: ['#6366F1', '#8B5CF6', '#A78BFA'], desc: 'Deep indigo tones',
-    vars: { '--color-primary-50': '#EEF2FF', '--color-primary-100': '#E0E7FF', '--color-primary-500': '#6366F1', '--color-primary-600': '#4F46E5' }
+    vars: { '--color-primary-50': '#EEF2FF', '--color-primary-100': '#E0E7FF', '--color-primary-500': '#6366F1', '--color-primary-600': '#4F46E5', '--color-secondary-500': '#8B5CF6', '--color-accent-500': '#A78BFA' }
   },
 ]
 
