@@ -5,9 +5,9 @@ import { Flower2 } from 'lucide-react'
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; message?: string }>
 }) {
-  const { error } = await searchParams;
+  const { error, message } = await searchParams;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -55,6 +55,7 @@ export default async function RegisterPage({
             />
           </div>
           {error && <div className="text-secondary-500 text-sm mt-2">{error}</div>}
+          {message && <div className="text-primary-600 text-sm mt-2">{message}</div>}
           <button formAction={signup} className="w-full btn-primary mt-6">
             Sign Up
           </button>

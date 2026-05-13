@@ -11,5 +11,7 @@ export default async function ProfilePage() {
     redirect('/login')
   }
 
-  return <ProfileClient userEmail={user.email ?? ''} />
+  const fullName = user.user_metadata?.full_name || ''
+
+  return <ProfileClient userEmail={user.email ?? ''} initialName={fullName} />
 }

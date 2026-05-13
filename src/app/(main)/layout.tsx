@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Flower2, LogOut } from 'lucide-react'
 import { logout } from '../(auth)/actions'
 import { DesktopNav, MobileNav } from './Navigation'
+import NotificationManager from './NotificationManager'
 
 export default function DashboardLayout({
   children,
@@ -50,6 +51,7 @@ export default function DashboardLayout({
         <div className="flex-1 w-full max-w-[1600px] mx-auto h-full flex flex-col">
           {children}
         </div>
+        <NotificationManager />
       </main>
     </div>
   )

@@ -337,7 +337,7 @@ export default function DashboardClient({
                 </span>
               </button>
             ))}
-            
+
             {/* "Others" toggle button */}
             {!showAllMoods && (
               <button

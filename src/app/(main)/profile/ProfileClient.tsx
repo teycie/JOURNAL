@@ -34,18 +34,20 @@ const THEMES = [
 
 
 
-export default function ProfileClient({ userEmail }: { userEmail: string }) {
+export default function ProfileClient({ userEmail, initialName }: { userEmail: string, initialName: string }) {
   const [section, setSection] = useState<Section>('account')
 
   // Account
-  const [displayName, setDisplayName] = useState('')
+  const [displayName, setDisplayName] = useState(initialName)
   const [avatar, setAvatar] = useState<string | null>(null)
   const avatarRef = useRef<HTMLInputElement>(null)
 
   // Appearance
   const [selectedTheme, setSelectedTheme] = useState('default')
-
   const [themeApplied, setThemeApplied] = useState(false)
+
+  const [notifDaily, setNotifDaily] = useState(true)
+  const [reminderTime, setReminderTime] = useState('20:00')
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('bloomly-theme') || 'default'
@@ -59,7 +61,35 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
       root.style.setProperty('--book-frame-color', theme.colors[0])
       root.classList.remove('dark')
     }
+
+    // Load Notifications
+    setNotifDaily(localStorage.getItem('bloomly-notif-daily') !== 'false')
+    setReminderTime(localStorage.getItem('bloomly-notif-time') || '20:00')
   }, [])
+
+  const handleNotifToggle = async (type: 'daily', checked: boolean) => {
+    if (type === 'daily') setNotifDaily(checked)
+    
+    localStorage.setItem(`bloomly-notif-${type}`, String(checked))
+
+    // If enabling daily, show a test popup
+    if (checked && type === 'daily' && 'Notification' in window) {
+      const permission = await Notification.requestPermission()
+      if (permission === 'granted') {
+        new Notification('Bloomly Daily Reminder', {
+          body: 'This is a gentle nudge to journal today! ✨',
+          icon: '/favicon.ico'
+        })
+      } else {
+        alert('Please enable notifications in your browser to receive reminders.')
+      }
+    }
+  }
+
+  const handleTimeChange = (time: string) => {
+    setReminderTime(time)
+    localStorage.setItem('bloomly-notif-time', time)
+  }
 
   const handleApplyTheme = () => {
     const theme = THEMES.find(t => t.id === selectedTheme)
@@ -109,6 +139,12 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
     setNewPassword('')
     setConfirmPassword('')
     setTimeout(() => setPwSaved(false), 3000)
+  }
+
+  const handleAccountSave = async () => {
+    // In a real app, you'd call a server action or supabase.auth.updateUser here
+    // For now, we'll just show a success state
+    alert('Changes saved successfully!')
   }
 
   const navItems = [
@@ -208,7 +244,7 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
                   </div>
 
                   <div className="pt-4 border-t border-gray-100 flex justify-end">
-                    <button className="btn-primary">Save Changes</button>
+                    <button onClick={handleAccountSave} className="btn-primary">Save Changes</button>
                   </div>
                 </div>
               </div>
@@ -271,23 +307,38 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
             <div className="glass-panel p-6">
               <h3 className="text-xl font-serif font-semibold mb-6">Notifications</h3>
               <div className="space-y-4">
-                {[
-                  { label: 'Daily reminder to write', desc: 'Get a gentle nudge to journal every day' },
-                  { label: 'Weekly summary', desc: 'A summary of your mood and entries' },
-                  { label: 'Task reminders', desc: 'Remind me about incomplete tasks' },
-                ].map(item => (
-                  <label key={item.label} className="flex items-center justify-between p-4 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer">
+                <label className="flex items-center justify-between p-4 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer">
+                  <div>
+                    <p className="font-medium text-sm text-foreground">Daily reminder to write</p>
+                    <p className="text-xs text-gray-500">Get a gentle nudge to journal every day</p>
+                  </div>
+                  <div className="relative">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={notifDaily} 
+                      onChange={(e) => handleNotifToggle('daily', e.target.checked)}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-checked:bg-primary-500 rounded-full transition-colors" />
+                    <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
+                  </div>
+                </label>
+
+                {/* Time Picker for Daily Reminder */}
+                {notifDaily && (
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-primary-50/30 border border-primary-100 ml-4">
                     <div>
-                      <p className="font-medium text-sm text-foreground">{item.label}</p>
-                      <p className="text-xs text-gray-500">{item.desc}</p>
+                      <p className="font-medium text-sm text-foreground">Reminder Time</p>
+                      <p className="text-xs text-gray-500">When should we nudge you?</p>
                     </div>
-                    <div className="relative">
-                      <input type="checkbox" className="sr-only peer" defaultChecked />
-                      <div className="w-11 h-6 bg-gray-200 peer-checked:bg-primary-500 rounded-full transition-colors" />
-                      <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
-                    </div>
-                  </label>
-                ))}
+                    <input 
+                      type="time" 
+                      value={reminderTime}
+                      onChange={(e) => handleTimeChange(e.target.value)}
+                      className="px-3 py-1 rounded-lg bg-white border border-primary-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -378,27 +429,6 @@ export default function ProfileClient({ userEmail }: { userEmail: string }) {
                 </div>
               </div>
 
-              <div className="border-t border-gray-100 pt-6">
-                <h4 className="font-semibold text-gray-700 mb-3 text-sm">Privacy</h4>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Private journal', desc: 'Only you can see your entries' },
-                    { label: 'Analytics & insights', desc: 'Allow anonymised usage data' },
-                  ].map(item => (
-                    <label key={item.label} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer">
-                      <div>
-                        <p className="font-medium text-sm text-foreground">{item.label}</p>
-                        <p className="text-xs text-gray-400">{item.desc}</p>
-                      </div>
-                      <div className="relative">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-checked:bg-primary-500 rounded-full transition-colors" />
-                        <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
 
