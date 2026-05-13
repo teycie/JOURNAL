@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Plus, BookOpen, X, Upload, ChevronLeft, GripVertical, Trash2, Pencil, ChevronRight, Eye } from 'lucide-react'
 import Scrapbook, { ScrapbookPage } from '@/components/Scrapbook'
+import { uploadImage } from '@/utils/supabase/storage'
 
 type Book = {
   id: string
@@ -303,6 +304,7 @@ export default function JournalClient({ initialBooks = [] }: { initialBooks?: Bo
   const [editTitle, setEditTitle] = useState('')
   const [editColor, setEditColor] = useState(COVER_COLORS[0])
   const [editCoverImage, setEditCoverImage] = useState<string | undefined>(undefined)
+  const [isUploading, setIsUploading] = useState(false)
   const [editOffset, setEditOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const [editTitlePos, setEditTitlePos] = useState<{ x: number; y: number }>({ x: 50, y: 50 })
   const [editFontSize, setEditFontSize] = useState(28)
@@ -312,14 +314,19 @@ export default function JournalClient({ initialBooks = [] }: { initialBooks?: Bo
 
   const coverFileRef = useRef<HTMLInputElement>(null)
 
-  const handleCoverImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      setEditCoverImage(typeof reader.result === 'string' ? reader.result : undefined)
+    
+    setIsUploading(true)
+    try {
+      const publicUrl = await uploadImage(file)
+      setEditCoverImage(publicUrl)
+    } catch (err) {
+      alert('Failed to upload image. Make sure you have a "journal_images" bucket in Supabase.')
+    } finally {
+      setIsUploading(false)
     }
-    reader.readAsDataURL(file)
   }
 
   const openEditCover = (book: Book) => {
@@ -550,7 +557,12 @@ export default function JournalClient({ initialBooks = [] }: { initialBooks?: Bo
                 onClick={() => coverFileRef.current?.click()}
                 className="border-2 border-dashed border-gray-200 hover:border-primary-300 rounded-xl p-4 cursor-pointer text-center transition-colors group"
               >
-                {editCoverImage ? (
+                {isUploading ? (
+                  <div className="flex flex-col items-center gap-2 py-4">
+                    <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs text-gray-500 font-medium">Uploading to storage...</span>
+                  </div>
+                ) : editCoverImage ? (
                   <div className="flex items-center gap-3">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={editCoverImage} alt="cover thumb" className="w-12 h-12 object-cover rounded-lg" />

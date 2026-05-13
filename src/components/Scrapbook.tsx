@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Plus, Trash2, ChevronLeft, ChevronRight, Bold, Italic, Underline, Type, Image as ImageIcon, X, AlertTriangle, RotateCcw, RotateCw } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, Bold, Italic, Underline, Type, Image as ImageIcon, X, AlertTriangle, RotateCcw, RotateCw, Loader2 } from 'lucide-react'
+import { uploadImage } from '@/utils/supabase/storage'
 
 export type ScrapbookImage = {
   id: string
@@ -386,6 +387,7 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [activeSide, setActiveSide] = useState<'left' | 'right'>('left')
+  const [isUploading, setIsUploading] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Store callback in a ref so it never causes a re-render loop
@@ -415,15 +417,23 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
   const deleteText = (pi: number, id: string) =>
     setPages(prev => prev.map((p, i) => i === pi ? { ...p, texts: (p.texts || []).filter(t => t.id !== id) } : p))
 
-  const handleAddImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAddImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
-    const url = URL.createObjectURL(file)
-    const img: ScrapbookImage = { id: genId(), url, x: 15, y: 15, width: 40, height: 40, rotation: (Math.random() - 0.5) * 8, zIndex: Date.now() }
-    const targetPageIdx = activeSide === 'right' ? currentPageIndex + 1 : currentPageIndex
+    
+    setIsUploading(true)
+    try {
+      const url = await uploadImage(file)
+      const img: ScrapbookImage = { id: genId(), url, x: 15, y: 15, width: 40, height: 40, rotation: (Math.random() - 0.5) * 8, zIndex: Date.now() }
+      const targetPageIdx = activeSide === 'right' ? currentPageIndex + 1 : currentPageIndex
 
-    setPages(prev => prev.map((p, i) => i === targetPageIdx ? { ...p, images: [...p.images, img] } : p))
-    setSelectedId(img.id)
-    e.target.value = ''
+      setPages(prev => prev.map((p, i) => i === targetPageIdx ? { ...p, images: [...p.images, img] } : p))
+      setSelectedId(img.id)
+    } catch (err) {
+      alert('Failed to upload image. Make sure you have a "journal_images" bucket in Supabase.')
+    } finally {
+      setIsUploading(false)
+      e.target.value = ''
+    }
   }
 
   const handleClickEmpty = (pi: number, x: number, y: number) => {
@@ -473,9 +483,11 @@ export default function Scrapbook({ pages: initialPages, onUpdatePages }: Scrapb
         <div className="flex items-center gap-2">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors shadow-lg shadow-primary-200"
+            disabled={isUploading}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors shadow-lg shadow-primary-200 disabled:opacity-50"
           >
-            <ImageIcon size={16} /> Add Image
+            {isUploading ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
+            {isUploading ? 'Uploading...' : 'Add Image'}
           </button>
           <button
             onClick={() => handleClickEmpty(activeSide === 'right' ? currentPageIndex + 1 : currentPageIndex, 20, 20)}
